@@ -233,14 +233,14 @@ namespace LockScreenDemo.Agent
 
         private static X509Certificate2 GenerateSelfSignedCertificate()
         {
-            using (var rsa = RSA.Create(2048))
-            {
-                var request = new CertificateRequest("cn=LockScreenDemo", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-                var certificate = request.CreateSelfSigned(DateTimeOffset.Now.AddDays(-1), DateTimeOffset.Now.AddYears(1));
-                
-                // Export and re-import as PFX to tie the private key to machine keyset provider properly
-                return new X509Certificate2(certificate.Export(X509ContentType.Pfx, "password"), "password", X509KeyStorageFlags.Exportable | X509KeyStorageFlags.EphemeralKeySet);
-            }
+            RSA rsa = RSA.Create(2048);
+            var request = new CertificateRequest("cn=LockScreenDemo", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+            X509Certificate2 certificate = request.CreateSelfSigned(DateTimeOffset.Now.AddDays(-1), DateTimeOffset.Now.AddYears(1));
+            
+            // Return the certificate with the private key directly bound to it.
+            // This avoids both the disk-based MachineKeySet permissions issues (which cause 0xC0000005 crashes)
+            // and the EphemeralKeySet SslStream handshake failures.
+            return certificate.CopyWithPrivateKey(rsa);
         }
 
         private static void SimulateMouse(MouseMsgType type, int x, int y, int wheelDelta)
