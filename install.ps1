@@ -92,6 +92,13 @@ sc.exe description LockScreenDemoService "Windows Lock Screen Access Proof-of-Co
 Write-Host "Starting LockScreenDemoService..." -ForegroundColor Cyan
 sc.exe start LockScreenDemoService | Out-Null
 
+# 5. Configure Windows Firewall
+if (Get-Command New-NetFirewallRule -ErrorAction SilentlyContinue) {
+    Write-Host "Configuring Windows Firewall to allow TCP port 5800..." -ForegroundColor Cyan
+    Remove-NetFirewallRule -Name "LockScreenDemo" -ErrorAction SilentlyContinue | Out-Null
+    New-NetFirewallRule -Name "LockScreenDemo" -DisplayName "LockScreenDemo" -Direction Inbound -LocalPort 5800 -Protocol TCP -Action Allow -ErrorAction SilentlyContinue | Out-Null
+}
+
 Write-Host ""
 Write-Host "Installation Complete!" -ForegroundColor Green
 Write-Host "The service is now running and monitoring user sessions." -ForegroundColor Green

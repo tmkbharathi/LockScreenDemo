@@ -46,5 +46,11 @@ if (Test-Path $InstallDir) {
     Remove-Item -Path $InstallDir -Force -ErrorAction SilentlyContinue
 }
 
+# 4. Remove Windows Firewall configuration
+if (Get-Command Remove-NetFirewallRule -ErrorAction SilentlyContinue) {
+    Write-Host "Removing Windows Firewall rule..." -ForegroundColor Yellow
+    Remove-NetFirewallRule -Name "LockScreenDemo" -ErrorAction SilentlyContinue | Out-Null
+}
+
 Write-Host ""
 Write-Host "Uninstallation Complete!" -ForegroundColor Green
