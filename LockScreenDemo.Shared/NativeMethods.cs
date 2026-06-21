@@ -22,6 +22,7 @@ namespace LockScreenDemo.Shared
         public const uint TOKEN_ASSIGN_PRIMARY = 0x0001;
         public const uint TOKEN_QUERY = 0x0008;
         public const uint TOKEN_ALL_ACCESS = 0x000F01FF;
+        public const int TokenSessionId = 12;
 
         // Desktop Access Rights
         public const uint DESKTOP_CREATEMENU = 0x0004;
@@ -201,8 +202,18 @@ namespace LockScreenDemo.Shared
         [DllImport("kernel32.dll", SetLastError = true)]
         public static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, uint dwProcessId);
 
+        [DllImport("kernel32.dll")]
+        public static extern IntPtr GetCurrentProcess();
+
         [DllImport("advapi32.dll", SetLastError = true)]
         public static extern bool OpenProcessToken(IntPtr ProcessHandle, uint DesiredAccess, out IntPtr TokenHandle);
+
+        [DllImport("advapi32.dll", SetLastError = true)]
+        public static extern bool SetTokenInformation(
+            IntPtr TokenHandle,
+            int TokenInformationClass,
+            ref uint TokenInformation,
+            uint TokenInformationLength);
 
         [DllImport("advapi32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         public static extern bool DuplicateTokenEx(

@@ -62,8 +62,10 @@ if (-not (Test-Path $BinDir)) {
 
 # 2. Compile and Publish the solution, or copy existing binaries if source is not present
 if (Test-Path "LockScreenDemo.slnx") {
-    Write-Host "Source solution found. Compiling and publishing solution..." -ForegroundColor Cyan
-    dotnet publish LockScreenDemo.slnx -c Release -o "$BinDir" --self-contained false
+    Write-Host "Source solution found. Compiling and publishing projects..." -ForegroundColor Cyan
+    dotnet publish LockScreenDemo.Service\LockScreenDemo.Service.csproj -c Release -o "$BinDir" --self-contained false
+    dotnet publish LockScreenDemo.Agent\LockScreenDemo.Agent.csproj -c Release -o "$BinDir" --self-contained false
+    dotnet publish LockScreenDemo.Viewer\LockScreenDemo.Viewer.csproj -c Release -o "$BinDir" --self-contained false
 } else {
     Write-Host "Source solution not found. Installing from pre-compiled binaries..." -ForegroundColor Cyan
     Get-ChildItem -Path $PSScriptRoot -Exclude "*.ps1" | Copy-Item -Destination $BinDir -Recurse -Force

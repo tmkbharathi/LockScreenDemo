@@ -26,6 +26,7 @@ namespace LockScreenDemo.Agent
 
         static void Main(string[] args)
         {
+            try { File.AppendAllText(@"C:\ProgramData\LockScreenDemo\agent_log.txt", $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [DEBUG] Main entered!{Environment.NewLine}"); } catch {}
             ConfigureDpiAwareness();
 
             // Global Exception Handler for debugging crashes
@@ -56,10 +57,8 @@ namespace LockScreenDemo.Agent
         {
             try
             {
-                // Generate a self-signed SSL certificate in memory
-                Log("Generating self-signed SSL/TLS certificate...");
-                X509Certificate2 serverCertificate = GenerateSelfSignedCertificate();
-                Log("Certificate generated successfully.");
+                // Load or generate the server certificate
+                X509Certificate2 serverCertificate = GetServerCertificate();
 
                 _server = new TcpListener(IPAddress.Any, 5800);
                 _server.Start();
@@ -244,6 +243,30 @@ namespace LockScreenDemo.Agent
                 client.Dispose();
                 Log("Secure client connection closed.");
             }
+        }
+
+        private static X509Certificate2 GetServerCertificate()
+        {
+            try
+            {
+                using (var store = new X509Store(StoreName.My, StoreLocation.LocalMachine))
+                {
+                    store.Open(OpenFlags.ReadOnly);
+                    var certs = store.Certificates.Find(X509FindType.FindBySubjectName, "LockScreenDemo", false);
+                    if (certs.Count > 0)
+                    {
+                        Log("Successfully loaded certificate 'LockScreenDemo' from LocalMachine store.");
+                        return certs[0];
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"Failed to load certificate from LocalMachine store: {ex.Message}");
+            }
+
+            Log("Falling back to local self-signed certificate generation...");
+            return GenerateSelfSignedCertificate();
         }
 
         private static X509Certificate2 GenerateSelfSignedCertificate()
@@ -532,7 +555,7 @@ namespace LockScreenDemo.Agent
         private static bool SwitchToInputDesktop(out string desktopName)
         {
             desktopName = "Unknown";
-            IntPtr hInputDesktop = NativeMethods.OpenInputDesktop(0, false, NativeMethods.DESKTOP_ALL);
+            IntPtr hInputDesktop = NativeMethods.OpenInputDesktop(0, false, NativeMethods.MAXIMUM_ALLOWED);
             if (hInputDesktop == IntPtr.Zero)
             {
                 return false;

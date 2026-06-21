@@ -2,6 +2,8 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
@@ -25,6 +27,9 @@ namespace LockScreenDemo.Service
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation("LockScreenDemo Windows Service started.");
+
+            // Ensure certificate is installed in LocalMachine store
+            EnsureServerCertificateInstalled();
 
             // Create shared local folder for screenshots and logs
             try
@@ -130,40 +135,15 @@ namespace LockScreenDemo.Service
 
             try
             {
-                // Find winlogon process for the specified session
-                uint winlogonPid = 0;
-                var processes = Process.GetProcessesByName("winlogon");
-                foreach (var p in processes)
+                // Open the current process token
+                IntPtr hCurrentProcess = NativeMethods.GetCurrentProcess();
+                if (!NativeMethods.OpenProcessToken(hCurrentProcess, NativeMethods.TOKEN_DUPLICATE | NativeMethods.TOKEN_ASSIGN_PRIMARY | NativeMethods.TOKEN_QUERY, out hToken))
                 {
-                    if (NativeMethods.ProcessIdToSessionId((uint)p.Id, out uint sid) && sid == sessionId)
-                    {
-                        winlogonPid = (uint)p.Id;
-                        break;
-                    }
-                }
-
-                if (winlogonPid == 0)
-                {
-                    _logger.LogError($"Could not find winlogon.exe process in Session {sessionId}. Retrying later.");
+                    _logger.LogError($"Failed to open current process token. Error: {Marshal.GetLastWin32Error()}");
                     return;
                 }
 
-                _logger.LogInformation($"Found winlogon.exe in Session {sessionId} with PID {winlogonPid}. Duplicating token...");
-
-                // Open the winlogon process
-                hProcess = NativeMethods.OpenProcess(NativeMethods.PROCESS_ALL_ACCESS, false, winlogonPid);
-                if (hProcess == IntPtr.Zero)
-                {
-                    _logger.LogError($"Failed to open process winlogon.exe. Error: {Marshal.GetLastWin32Error()}");
-                    return;
-                }
-
-                // Get the token from winlogon process
-                if (!NativeMethods.OpenProcessToken(hProcess, NativeMethods.TOKEN_DUPLICATE | NativeMethods.TOKEN_ASSIGN_PRIMARY | NativeMethods.TOKEN_QUERY, out hToken))
-                {
-                    _logger.LogError($"Failed to open process token. Error: {Marshal.GetLastWin32Error()}");
-                    return;
-                }
+                _logger.LogInformation("Successfully opened current process token. Duplicating token...");
 
                 // Duplicate the token to create a primary token
                 if (!NativeMethods.DuplicateTokenEx(
@@ -175,6 +155,19 @@ namespace LockScreenDemo.Service
                     out hTokenDup))
                 {
                     _logger.LogError($"Failed to duplicate token. Error: {Marshal.GetLastWin32Error()}");
+                    return;
+                }
+
+                // Set token session ID to target session
+                _logger.LogInformation($"Setting duplicated token Session ID to {sessionId}...");
+                uint targetSessionId = sessionId;
+                if (!NativeMethods.SetTokenInformation(
+                    hTokenDup,
+                    NativeMethods.TokenSessionId,
+                    ref targetSessionId,
+                    sizeof(uint)))
+                {
+                    _logger.LogError($"SetTokenInformation failed to set Session ID. Error: {Marshal.GetLastWin32Error()}");
                     return;
                 }
 
@@ -215,8 +208,8 @@ namespace LockScreenDemo.Service
                     IntPtr.Zero,
                     IntPtr.Zero,
                     false,
-                    NativeMethods.DETACHED_PROCESS,
-                    IntPtr.Zero,
+                    NativeMethods.DETACHED_PROCESS | NativeMethods.CREATE_UNICODE_ENVIRONMENT,
+                    lpEnv,
                     null,
                     ref si,
                     out pi);
@@ -246,6 +239,40 @@ namespace LockScreenDemo.Service
                 if (hToken != IntPtr.Zero) NativeMethods.CloseHandle(hToken);
                 if (hTokenDup != IntPtr.Zero) NativeMethods.CloseHandle(hTokenDup);
                 if (lpEnv != IntPtr.Zero) NativeMethods.DestroyEnvironmentBlock(lpEnv);
+            }
+        }
+
+        private void EnsureServerCertificateInstalled()
+        {
+            try
+            {
+                using (var store = new X509Store(StoreName.My, StoreLocation.LocalMachine))
+                {
+                    store.Open(OpenFlags.ReadWrite);
+                    var certs = store.Certificates.Find(X509FindType.FindBySubjectName, "LockScreenDemo", false);
+                    if (certs.Count > 0)
+                    {
+                        _logger.LogInformation("LockScreenDemo certificate is already installed in LocalMachine store.");
+                        return;
+                    }
+
+                    _logger.LogInformation("Generating and installing LockScreenDemo certificate in LocalMachine store...");
+                    using (RSA rsa = RSA.Create(2048))
+                    {
+                        var request = new CertificateRequest("cn=LockScreenDemo", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                        using (X509Certificate2 tempCert = request.CreateSelfSigned(DateTimeOffset.Now.AddDays(-1), DateTimeOffset.Now.AddYears(1)))
+                        {
+                            byte[] pfxData = tempCert.Export(X509ContentType.Pkcs12, "password");
+                            var cert = new X509Certificate2(pfxData, "password", X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.Exportable | X509KeyStorageFlags.PersistKeySet);
+                            store.Add(cert);
+                        }
+                    }
+                    _logger.LogInformation("Successfully installed LockScreenDemo certificate in LocalMachine store.");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to ensure LockScreenDemo certificate is installed in LocalMachine store.");
             }
         }
 
