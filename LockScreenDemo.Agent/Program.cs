@@ -26,6 +26,8 @@ namespace LockScreenDemo.Agent
 
         static void Main(string[] args)
         {
+            ConfigureDpiAwareness();
+
             // Global Exception Handler for debugging crashes
             AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
             {
@@ -503,6 +505,32 @@ namespace LockScreenDemo.Agent
                 Marshal.FreeHGlobal(lpszName);
             }
             return "Unknown";
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SetProcessDpiAwarenessContext(IntPtr dpiContext);
+
+        [DllImport("user32.dll")]
+        private static extern bool SetProcessDPIAware();
+
+        private static void ConfigureDpiAwareness()
+        {
+            try
+            {
+                // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = -4
+                if (!SetProcessDpiAwarenessContext((IntPtr)(-4)))
+                {
+                    SetProcessDPIAware();
+                }
+            }
+            catch
+            {
+                try
+                {
+                    SetProcessDPIAware();
+                }
+                catch { }
+            }
         }
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
