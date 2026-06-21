@@ -21,6 +21,8 @@ PrivilegesRequiredOverridesAllowed=dialog
 [Files]
 ; Source all published release files
 Source: ".\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "install.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "uninstall.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 ; Add Desktop and Start Menu Shortcuts for the Viewer app

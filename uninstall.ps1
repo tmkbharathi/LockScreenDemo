@@ -17,6 +17,9 @@ if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
 $InstallDir = "C:\ProgramData\LockScreenDemo"
 $BinDir = "$InstallDir\bin"
 
+# Set working directory to script directory
+Set-Location $PSScriptRoot
+
 # 1. Stop and Delete Service
 if (Get-Service -Name "LockScreenDemoService" -ErrorAction SilentlyContinue) {
     Write-Host "Stopping LockScreenDemoService..." -ForegroundColor Yellow

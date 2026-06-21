@@ -17,6 +17,10 @@ if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
 $InstallDir = "C:\ProgramData\LockScreenDemo"
 $BinDir = "$InstallDir\bin"
 
+# Set working directory to the script directory to ensure relative paths work correctly
+Set-Location $PSScriptRoot
+
+
 # Stop existing service if running
 if (Get-Service -Name "LockScreenDemoService" -ErrorAction SilentlyContinue) {
     Write-Host "Stopping existing LockScreenDemoService..." -ForegroundColor Yellow
@@ -40,13 +44,22 @@ if (-not (Test-Path $BinDir)) {
     New-Item -ItemType Directory -Path $BinDir | Out-Null
 }
 
-# 2. Compile and Publish the solution
-Write-Host "Compiling and publishing solution..." -ForegroundColor Cyan
-dotnet publish LockScreenDemo.slnx -c Release -o "$BinDir" --self-contained false
+# 2. Compile and Publish the solution, or copy existing binaries if source is not present
+if (Test-Path "LockScreenDemo.slnx") {
+    Write-Host "Source solution found. Compiling and publishing solution..." -ForegroundColor Cyan
+    dotnet publish LockScreenDemo.slnx -c Release -o "$BinDir" --self-contained false
+} else {
+    Write-Host "Source solution not found. Installing from pre-compiled binaries..." -ForegroundColor Cyan
+    Get-ChildItem -Path $PSScriptRoot -Exclude "*.ps1" | Copy-Item -Destination $BinDir -Recurse -Force
+}
+
+# Copy the installation scripts to the bin directory so the Viewer can find them for future install/uninstall actions
+Copy-Item -Path (Join-Path $PSScriptRoot "install.ps1") -Destination $BinDir -Force
+Copy-Item -Path (Join-Path $PSScriptRoot "uninstall.ps1") -Destination $BinDir -Force
 
 # Verify output files exist
 if (-not (Test-Path "$BinDir\LockScreenDemo.Service.exe")) {
-    Write-Error "Compilation failed. LockScreenDemo.Service.exe not found."
+    Write-Error "Required service binary LockScreenDemo.Service.exe not found in $BinDir."
     Exit
 }
 

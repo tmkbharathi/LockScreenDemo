@@ -128,7 +128,12 @@ namespace LockScreenDemo.Viewer
             {
                 try
                 {
-                    byte[] imageBytes = File.ReadAllBytes(ScreenshotFile);
+                    byte[] imageBytes;
+                    using (var fs = new FileStream(ScreenshotFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    {
+                        imageBytes = new byte[fs.Length];
+                        fs.ReadExactly(imageBytes, 0, imageBytes.Length);
+                    }
                     using (var ms = new MemoryStream(imageBytes))
                     {
                         var bitmap = new BitmapImage();

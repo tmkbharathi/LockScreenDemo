@@ -440,13 +440,16 @@ namespace LockScreenDemo.Agent
                         byte[]? frame = CaptureScreenJpeg();
                         if (frame != null)
                         {
-                            string tempPath = ScreenshotPath + ".tmp";
-                            File.WriteAllBytes(tempPath, frame);
-                            if (File.Exists(ScreenshotPath))
+                            string? dir = Path.GetDirectoryName(ScreenshotPath);
+                            if (dir != null && !Directory.Exists(dir))
                             {
-                                File.Delete(ScreenshotPath);
+                                Directory.CreateDirectory(dir);
                             }
-                            File.Move(tempPath, ScreenshotPath);
+
+                            using (var fs = new FileStream(ScreenshotPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
+                            {
+                                fs.Write(frame, 0, frame.Length);
+                            }
                         }
                         errorCount = 0;
                     }
