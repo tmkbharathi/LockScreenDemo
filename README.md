@@ -112,16 +112,25 @@ Microsoft provides free virtual machines preconfigured for testing:
 
 To allow the VM instances to communicate, change the Network settings in your hypervisor:
 
-* **Option A: Host-Only Adapter** (Recommended for Offline Security):
+* **Option A: NAT with Port Forwarding (Easiest & Recommended)**:
+  * In VM Settings -> **Network** -> **Adapter 1**, set **Attached to** to **NAT**.
+  * Expand **Advanced** and click **Port Forwarding**.
+  * Add a new rule: Protocol `TCP`, Host IP `127.0.0.1`, Host Port `5800`, Guest Port `5800` (leave Guest IP blank).
+  * This allows the Host Viewer to connect to **`127.0.0.1`** to communicate with the VM.
+* **Option B: Host-Only Adapter**:
   * Sets up a private network between the host PC and your VMs.
   * The VMs will get IPs in the `192.168.56.x` range.
-* **Option B: Bridged Adapter** (Recommended for LAN Simulation):
-  * Binds the VM to your physical network adapter, making it look like a physical PC connected to your router.
+* **Option C: Bridged Adapter**:
+  * Binds the VM to your physical network adapter.
   * The VM gets an IP on your local home network (e.g., `192.168.1.x`).
 
 ### 3. Open Firewall Port in the Server VM
 
-The Windows Defender Firewall in the Server VM will block incoming TCP connections by default.
+The Windows Defender Firewall in the Server VM will block incoming TCP connections by default. 
+
+> [!TIP]
+> Since you cannot copy-paste from your host machine into the VirtualBox console, open a web browser **inside the VM**, go to your GitHub repository `https://github.com/tmkbharathi/LockScreenDemo`, and copy the firewall command from the README directly!
+
 Run this command in an **Administrator PowerShell** window inside the **Server VM** to allow incoming connections on port `5800`:
 
 ```powershell
