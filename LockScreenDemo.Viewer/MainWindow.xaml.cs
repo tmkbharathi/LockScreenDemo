@@ -190,7 +190,7 @@ namespace LockScreenDemo.Viewer
 
         // --- SECURE TCP CONNECTION CONTROLS ---
 
-        private void ConnectBtn_Click(object sender, RoutedEventArgs e)
+        private async void ConnectBtn_Click(object sender, RoutedEventArgs e)
         {
             string ipAddress = IpInput.Text.Trim();
             if (string.IsNullOrEmpty(ipAddress))
@@ -199,17 +199,25 @@ namespace LockScreenDemo.Viewer
                 return;
             }
 
+            // Temporarily disable buttons to prevent multiple clicks
+            ConnectBtn.IsEnabled = false;
+            IpInput.IsEnabled = false;
+
             try
             {
                 LogsBox.Text += $"\nConnecting securely to remote Agent at {ipAddress}:5800...\n";
                 _tcpClient = new TcpClient();
-                _tcpClient.Connect(ipAddress, 5800);
+                
+                // Asynchronously connect to prevent UI thread blocking
+                await _tcpClient.ConnectAsync(ipAddress, 5800);
                 
                 // Wrap in SslStream and trust the self-signed certificate explicitly
                 _sslStream = new SslStream(_tcpClient.GetStream(), false, (s, cert, chain, errs) => true);
                 
                 Log("Initiating SSL/TLS handshake...");
-                _sslStream.AuthenticateAsClient(ipAddress);
+                // Asynchronously authenticate to prevent UI thread blocking
+                await _sslStream.AuthenticateAsClientAsync(ipAddress);
+                
                 _isConnected = true;
                 Log("SSL/TLS encrypted connection established!");
 
@@ -219,7 +227,6 @@ namespace LockScreenDemo.Viewer
                 // UI adjustments
                 ConnectBtn.Visibility = Visibility.Collapsed;
                 DisconnectBtn.Visibility = Visibility.Visible;
-                IpInput.IsEnabled = false;
                 WakeBtn.IsEnabled = false;
                 LockScreenImg.Cursor = Cursors.Cross;
                 NoFeedTxt.Text = "Connecting and waiting for secure screen stream...";
@@ -240,6 +247,11 @@ namespace LockScreenDemo.Viewer
             {
                 MessageBox.Show($"Failed to connect securely: {ex.Message}", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 Disconnect();
+            }
+            finally
+            {
+                ConnectBtn.IsEnabled = true;
+                IpInput.IsEnabled = !_isConnected;
             }
         }
 
