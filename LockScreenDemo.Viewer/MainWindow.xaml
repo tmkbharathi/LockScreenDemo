@@ -65,143 +65,352 @@
     </Window.Resources>
 
     <Grid Background="{StaticResource PrimaryBackground}">
-        <Grid.RowDefinitions>
-            <!-- Title Bar -->
-            <RowDefinition Height="80"/>
-            <!-- Content Area -->
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
-
-        <!-- Header -->
-        <Grid Grid.Row="0" Margin="30,0,30,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
+        <!-- MODE SELECTION PANEL -->
+        <Grid x:Name="ModeSelectionPanel" Visibility="Visible">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
             
-            <StackPanel VerticalAlignment="Center">
-                <TextBlock Text="LOCK SCREEN ACCESS DEMO" FontSize="22" FontWeight="Bold" Foreground="White"/>
-                <TextBlock Text="Proof-of-Concept: Service-Agent Session Token Duplication" FontSize="11" Foreground="#94A3B8" Margin="0,2,0,0"/>
+            <!-- Header Title -->
+            <StackPanel Grid.Row="0" Margin="40,55,40,20" HorizontalAlignment="Center">
+                <TextBlock Text="LOCK SCREEN DEMO CONTROLLER" FontSize="28" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                <TextBlock Text="Choose how you want to configure this computer" FontSize="14" Foreground="#94A3B8" Margin="0,8,0,0" HorizontalAlignment="Center"/>
             </StackPanel>
-
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock Text="Remote IP:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                <TextBox x:Name="IpInput" Text="127.0.0.1" Width="120" Height="30" VerticalContentAlignment="Center" Background="#1E293B" Foreground="White" BorderBrush="#3A3F58" Margin="0,0,10,0" Padding="5,0" TextChanged="IpInput_TextChanged"/>
-                <Button x:Name="WakeBtn" Content="Wake" Style="{StaticResource PremiumButtonStyle}" Background="#10B981" Padding="15,6" Click="WakeBtn_Click" Margin="0,0,10,0" IsEnabled="False"/>
-                <Button x:Name="ConnectBtn" Content="Connect" Style="{StaticResource PremiumButtonStyle}" Padding="15,6" Click="ConnectBtn_Click" Margin="0,0,10,0"/>
-                <Button x:Name="DisconnectBtn" Content="Disconnect" Style="{StaticResource PremiumButtonStyle}" Background="#EF4444" Padding="15,6" Click="DisconnectBtn_Click" Margin="0,0,20,0" Visibility="Collapsed"/>
-                <Button Content="Lock Windows (Win+L)" Style="{StaticResource PremiumButtonStyle}" Padding="15,6" Click="LockBtn_Click"/>
-            </StackPanel>
+            
+            <!-- Cards Container -->
+            <Grid Grid.Row="1" Margin="40,20,40,50" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="380"/>
+                    <ColumnDefinition Width="40"/>
+                    <ColumnDefinition Width="380"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- Main PC (Viewer) Card -->
+                <Border Grid.Column="0" Background="#131B2E" BorderBrush="{StaticResource BorderGradient}" BorderThickness="1" CornerRadius="16" Padding="30">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <TextBlock Grid.Row="0" Text="💻" FontSize="48" Margin="0,0,0,15" HorizontalAlignment="Center"/>
+                        <TextBlock Grid.Row="1" Text="Main PC (Viewer)" FontSize="22" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+                        <TextBlock Grid.Row="2" Text="Use this mode to control another computer. You can view the remote lock screen, type password/PIN, bypass UAC prompts, and control the mouse/keyboard securely." 
+                                   Foreground="#94A3B8" FontSize="13" TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center" LineHeight="20" Margin="0,0,0,30"/>
+                        
+                        <Button Grid.Row="3" x:Name="SelectMainPcBtn" Content="Launch Viewer" Style="{StaticResource PremiumButtonStyle}" Height="45" Click="SelectMainPcBtn_Click"/>
+                    </Grid>
+                </Border>
+                
+                <!-- Sub PC (Host) Card -->
+                <Border Grid.Column="2" Background="#131B2E" BorderBrush="{StaticResource BorderGradient}" BorderThickness="1" CornerRadius="16" Padding="30">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <TextBlock Grid.Row="0" Text="⚙️" FontSize="48" Margin="0,0,0,15" HorizontalAlignment="Center"/>
+                        <TextBlock Grid.Row="1" Text="Sub PC (Host)" FontSize="22" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+                        <TextBlock Grid.Row="2" Text="Use this mode to allow other computers to control this machine. Install/run the background LockScreenDemo service or run the Agent process standalone in this user session." 
+                                   Foreground="#94A3B8" FontSize="13" TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center" LineHeight="20" Margin="0,0,0,30"/>
+                        
+                        <Button Grid.Row="3" x:Name="SelectSubPcBtn" Content="Launch Host Config" Style="{StaticResource PremiumButtonStyle}" Background="#10B981" Height="45" Click="SelectSubPcBtn_Click"/>
+                    </Grid>
+                </Border>
+            </Grid>
         </Grid>
 
-        <!-- Main Body -->
-        <Grid Grid.Row="1" Margin="30,0,30,30">
-            <Grid.ColumnDefinitions>
-                <!-- Controls & Logs Panel -->
-                <ColumnDefinition Width="380"/>
-                <!-- Captured Screenshot Panel -->
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
+        <!-- MAIN PC (VIEWER) PANEL -->
+        <Grid x:Name="MainPcPanel" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <!-- Title Bar -->
+                <RowDefinition Height="80"/>
+                <!-- Content Area -->
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
 
-            <!-- Left Panel (Status + Logs) -->
-            <Grid Grid.Column="0" Margin="0,0,15,0">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
+            <!-- Header -->
+            <Grid Grid.Row="0" Margin="30,0,30,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <Button Grid.Column="0" x:Name="BackFromViewerBtn" Content="← Menu" Style="{StaticResource PremiumButtonStyle}" Padding="12,6" VerticalAlignment="Center" Click="BackToSelection_Click" Margin="0,0,15,0"/>
+                
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="LOCK SCREEN ACCESS DEMO" FontSize="22" FontWeight="Bold" Foreground="White"/>
+                    <TextBlock Text="Proof-of-Concept: Service-Agent Session Token Duplication" FontSize="11" Foreground="#94A3B8" Margin="0,2,0,0"/>
+                </StackPanel>
 
-                <!-- Status Card -->
-                <Border Grid.Row="0" Background="#1E293B" BorderBrush="{StaticResource BorderGradient}" BorderThickness="1" CornerRadius="12" Padding="20">
-                    <StackPanel>
-                        <TextBlock Text="System Status" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,15"/>
-                        
-                        <!-- Service Status -->
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="130"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Service Status:" Foreground="#94A3B8" VerticalAlignment="Center"/>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Ellipse x:Name="ServiceStatusIndicator" Width="10" Height="10" Fill="#EF4444" Margin="0,0,8,0"/>
-                                <TextBlock x:Name="ServiceStatusTxt" Text="Checking..." Foreground="White" FontWeight="SemiBold"/>
-                            </StackPanel>
-                        </Grid>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Remote IP:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBox x:Name="IpInput" Text="127.0.0.1" Width="120" Height="30" VerticalContentAlignment="Center" Background="#1E293B" Foreground="White" BorderBrush="#3A3F58" Margin="0,0,10,0" Padding="5,0" TextChanged="IpInput_TextChanged"/>
+                    <Button x:Name="WakeBtn" Content="Wake" Style="{StaticResource PremiumButtonStyle}" Background="#10B981" Padding="15,6" Click="WakeBtn_Click" Margin="0,0,10,0" IsEnabled="False"/>
+                    <Button x:Name="ConnectBtn" Content="Connect" Style="{StaticResource PremiumButtonStyle}" Padding="15,6" Click="ConnectBtn_Click" Margin="0,0,10,0"/>
+                    <Button x:Name="DisconnectBtn" Content="Disconnect" Style="{StaticResource PremiumButtonStyle}" Background="#EF4444" Padding="15,6" Click="DisconnectBtn_Click" Margin="0,0,20,0" Visibility="Collapsed"/>
+                    <Button Content="Lock Windows (Win+L)" Style="{StaticResource PremiumButtonStyle}" Padding="15,6" Click="LockBtn_Click"/>
+                </StackPanel>
+            </Grid>
 
-                        <!-- Agent Status -->
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="130"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Agent Status:" Foreground="#94A3B8" VerticalAlignment="Center"/>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Ellipse x:Name="AgentStatusIndicator" Width="10" Height="10" Fill="#EF4444" Margin="0,0,8,0"/>
-                                <TextBlock x:Name="AgentStatusTxt" Text="Not Spawned" Foreground="White" FontWeight="SemiBold"/>
-                            </StackPanel>
-                        </Grid>
+            <!-- Main Body -->
+            <Grid Grid.Row="1" Margin="30,0,30,30">
+                <Grid.ColumnDefinitions>
+                    <!-- Controls & Logs Panel -->
+                    <ColumnDefinition Width="380"/>
+                    <!-- Captured Screenshot Panel -->
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
 
-                        <!-- Session Info -->
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="130"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Current Session ID:" Foreground="#94A3B8"/>
-                            <TextBlock Grid.Column="1" x:Name="SessionIdTxt" Text="-" Foreground="White" FontWeight="SemiBold"/>
-                        </Grid>
+                <!-- Left Panel (Status + Logs) -->
+                <Grid Grid.Column="0" Margin="0,0,15,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
 
-                        <!-- Last Captured Info -->
+                    <!-- Status Card -->
+                    <Border Grid.Row="0" Background="#1E293B" BorderBrush="{StaticResource BorderGradient}" BorderThickness="1" CornerRadius="12" Padding="20">
+                        <StackPanel>
+                            <TextBlock Text="System Status" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,15"/>
+                            
+                            <!-- Service Status -->
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="130"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Service Status:" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Ellipse x:Name="ServiceStatusIndicator" Width="10" Height="10" Fill="#EF4444" Margin="0,0,8,0"/>
+                                    <TextBlock x:Name="ServiceStatusTxt" Text="Checking..." Foreground="White" FontWeight="SemiBold"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Agent Status -->
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="130"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Agent Status:" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Ellipse x:Name="AgentStatusIndicator" Width="10" Height="10" Fill="#EF4444" Margin="0,0,8,0"/>
+                                    <TextBlock x:Name="AgentStatusTxt" Text="Not Spawned" Foreground="White" FontWeight="SemiBold"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Session Info -->
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="130"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Current Session ID:" Foreground="#94A3B8"/>
+                                <TextBlock Grid.Column="1" x:Name="SessionIdTxt" Text="-" Foreground="White" FontWeight="SemiBold"/>
+                            </Grid>
+
+                            <!-- Last Captured Info -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="130"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Last Capture:" Foreground="#94A3B8"/>
+                                <TextBlock Grid.Column="1" x:Name="LastCaptureTxt" Text="Never" Foreground="White" FontWeight="SemiBold"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Logs Card -->
+                    <Border Grid.Row="1" Margin="0,15,0,0" Background="#131B2E" BorderBrush="{StaticResource BorderGradient}" BorderThickness="1" CornerRadius="12" Padding="20">
                         <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="130"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Last Capture:" Foreground="#94A3B8"/>
-                            <TextBlock Grid.Column="1" x:Name="LastCaptureTxt" Text="Never" Foreground="White" FontWeight="SemiBold"/>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="Agent Logs" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
+                            <TextBox Grid.Row="1" x:Name="LogsBox" Background="#0C101B" Foreground="#38BDF8" BorderThickness="0" 
+                                     TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" IsReadOnly="True" 
+                                     FontFamily="Consolas" FontSize="11" Padding="10"/>
                         </Grid>
-                    </StackPanel>
-                </Border>
+                    </Border>
+                </Grid>
 
-                <!-- Logs Card -->
-                <Border Grid.Row="1" Margin="0,15,0,0" Background="#131B2E" BorderBrush="{StaticResource BorderGradient}" BorderThickness="1" CornerRadius="12" Padding="20">
+                <!-- Right Panel (Captured Screenshot Display) -->
+                <Border Grid.Column="1" Margin="15,0,0,0" Background="#131B2E" BorderBrush="{StaticResource BorderGradient}" BorderThickness="1" CornerRadius="12" Padding="20">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="Agent Logs" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
-                        <TextBox Grid.Row="1" x:Name="LogsBox" Background="#0C101B" Foreground="#38BDF8" BorderThickness="0" 
-                                 TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" IsReadOnly="True" 
-                                 FontFamily="Consolas" FontSize="11" Padding="10"/>
+                        
+                        <TextBlock Grid.Row="0" Text="Live Lock Screen Feed (GDI Capture via Agent)" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,15"/>
+                        
+                        <Border Grid.Row="1" Background="#0A0E1A" CornerRadius="8" BorderThickness="1" BorderBrush="#334155" ClipToBounds="True">
+                            <Grid>
+                                <Image x:Name="LockScreenImg" Stretch="Uniform" Margin="5"
+                                       MouseDown="LockScreenImg_MouseDown"
+                                       MouseUp="LockScreenImg_MouseUp"
+                                       MouseMove="LockScreenImg_MouseMove"
+                                       MouseWheel="LockScreenImg_MouseWheel"
+                                       Cursor="Arrow"/>
+                                <TextBlock x:Name="NoFeedTxt" Text="No Screen Capture Available Yet. Lock Windows (Win+L) to start capture." 
+                                           Foreground="#64748B" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14"/>
+                            </Grid>
+                        </Border>
                     </Grid>
                 </Border>
             </Grid>
+        </Grid>
 
-            <!-- Right Panel (Captured Screenshot Display) -->
-            <Border Grid.Column="1" Margin="15,0,0,0" Background="#131B2E" BorderBrush="{StaticResource BorderGradient}" BorderThickness="1" CornerRadius="12" Padding="20">
-                <Grid>
+        <!-- SUB PC (HOST) PANEL -->
+        <Grid x:Name="SubPcPanel" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <!-- Title & Navigation -->
+                <RowDefinition Height="80"/>
+                <!-- Main Body -->
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            
+            <Grid Grid.Row="0" Margin="30,0,30,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Button x:Name="BackFromSubPcBtn" Content="← Menu" Style="{StaticResource PremiumButtonStyle}" Padding="12,6" VerticalAlignment="Center" Click="BackToSelection_Click"/>
+                <StackPanel Grid.Column="1" Margin="20,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="SUB PC (HOST) SETUP" FontSize="22" FontWeight="Bold" Foreground="White"/>
+                    <TextBlock Text="Allow other computers to connect and control this machine" FontSize="11" Foreground="#94A3B8" Margin="0,2,0,0"/>
+                </StackPanel>
+            </Grid>
+
+            <Grid Grid.Row="1" Margin="30,0,30,30">
+                <Grid.ColumnDefinitions>
+                    <!-- Service & Connection Config -->
+                    <ColumnDefinition Width="400"/>
+                    <!-- Standalone & Logs -->
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- Left Side: Connection Info & Service Management -->
+                <StackPanel Grid.Column="0" Margin="0,0,15,0">
+                    <!-- IP Addresses Card -->
+                    <Border Background="#1E293B" BorderBrush="{StaticResource BorderGradient}" BorderThickness="1" CornerRadius="12" Padding="20" Margin="0,0,0,15">
+                        <StackPanel>
+                            <TextBlock Text="Connection Details" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
+                            <TextBlock Text="Use the IP address below on the Main PC (Viewer) to connect to this machine:" Foreground="#94A3B8" TextWrapping="Wrap" FontSize="12" Margin="0,0,0,15"/>
+                            
+                            <Border Background="#0C101B" CornerRadius="6" Padding="10" Margin="0,0,0,10">
+                                <StackPanel>
+                                    <TextBlock Text="Local IP Addresses:" Foreground="#38BDF8" FontSize="11" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="LocalIpsTxt" Text="Fetching IP addresses..." Foreground="White" FontSize="14" FontWeight="Bold" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="#0C101B" CornerRadius="6" Padding="10">
+                                <Grid>
+                                    <TextBlock Text="Connection Port:" Foreground="#38BDF8" FontSize="11" FontWeight="SemiBold"/>
+                                    <TextBlock Text="5800" Foreground="White" FontSize="14" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Service Card -->
+                    <Border Background="#1E293B" BorderBrush="{StaticResource BorderGradient}" BorderThickness="1" CornerRadius="12" Padding="20">
+                        <StackPanel>
+                            <TextBlock Text="Windows Service (Session 0)" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
+                            <TextBlock Text="Required to control this PC when locked or on UAC prompts." Foreground="#94A3B8" TextWrapping="Wrap" FontSize="12" Margin="0,0,0,15"/>
+                            
+                            <Grid Margin="0,0,0,15">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Service Status:" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Ellipse x:Name="HostServiceStatusIndicator" Width="10" Height="10" Fill="#EF4444" Margin="0,0,8,0"/>
+                                    <TextBlock x:Name="HostServiceStatusTxt" Text="Checking..." Foreground="White" FontWeight="SemiBold"/>
+                                </StackPanel>
+                            </Grid>
+                            
+                            <!-- Action Buttons -->
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" x:Name="InstallServiceBtn" Content="Install Service" Style="{StaticResource PremiumButtonStyle}" Background="#10B981" Padding="10,8" FontSize="12" Click="InstallServiceBtn_Click"/>
+                                <Button Grid.Column="2" x:Name="UninstallServiceBtn" Content="Uninstall" Style="{StaticResource PremiumButtonStyle}" Background="#EF4444" Padding="10,8" FontSize="12" Click="UninstallServiceBtn_Click"/>
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" x:Name="StartServiceBtn" Content="Start Service" Style="{StaticResource PremiumButtonStyle}" Padding="10,8" FontSize="12" Click="StartServiceBtn_Click"/>
+                                <Button Grid.Column="2" x:Name="StopServiceBtn" Content="Stop Service" Style="{StaticResource PremiumButtonStyle}" Background="#4B5563" Padding="10,8" FontSize="12" Click="StopServiceBtn_Click"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Right Side: Standalone Agent & Logs -->
+                <Grid Grid.Column="1" Margin="15,0,0,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    
-                    <TextBlock Grid.Row="0" Text="Live Lock Screen Feed (GDI Capture via Agent)" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,15"/>
-                    
-                    <Border Grid.Row="1" Background="#0A0E1A" CornerRadius="8" BorderThickness="1" BorderBrush="#334155" ClipToBounds="True">
+
+                    <!-- Standalone Agent Card -->
+                    <Border Grid.Row="0" Background="#1E293B" BorderBrush="{StaticResource BorderGradient}" BorderThickness="1" CornerRadius="12" Padding="20" Margin="0,0,0,15">
                         <Grid>
-                            <Image x:Name="LockScreenImg" Stretch="Uniform" Margin="5"
-                                   MouseDown="LockScreenImg_MouseDown"
-                                   MouseUp="LockScreenImg_MouseUp"
-                                   MouseMove="LockScreenImg_MouseMove"
-                                   MouseWheel="LockScreenImg_MouseWheel"
-                                   Cursor="Arrow"/>
-                            <TextBlock x:Name="NoFeedTxt" Text="No Screen Capture Available Yet. Lock Windows (Win+L) to start capture." 
-                                       Foreground="#64748B" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14"/>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Standalone Agent Mode" FontSize="16" FontWeight="Bold" Foreground="White"/>
+                                <TextBlock Text="Run the screen-sharing server directly in this desktop session." Foreground="#94A3B8" TextWrapping="Wrap" FontSize="12" Margin="0,2,0,0"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <TextBlock Text="Agent Status: " Foreground="#94A3B8"/>
+                                    <Ellipse x:Name="HostAgentStatusIndicator" Width="10" Height="10" Fill="#EF4444" Margin="5,0,5,0" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="HostAgentStatusTxt" Text="Not Running" Foreground="White" FontWeight="SemiBold"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button x:Name="RunAgentStandaloneBtn" Content="Run Standalone" Style="{StaticResource PremiumButtonStyle}" Background="#10B981" Padding="15,8" Click="RunAgentStandaloneBtn_Click" Margin="0,0,10,0"/>
+                                <Button x:Name="StopAgentStandaloneBtn" Content="Stop Standalone" Style="{StaticResource PremiumButtonStyle}" Background="#EF4444" Padding="15,8" Click="StopAgentStandaloneBtn_Click"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Host Log Viewer -->
+                    <Border Grid.Row="1" Background="#131B2E" BorderBrush="{StaticResource BorderGradient}" BorderThickness="1" CornerRadius="12" Padding="20">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="Host Agent Logs" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
+                            <TextBox Grid.Row="1" x:Name="HostLogsBox" Background="#0C101B" Foreground="#38BDF8" BorderThickness="0" 
+                                     TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" IsReadOnly="True" 
+                                     FontFamily="Consolas" FontSize="11" Padding="10"/>
                         </Grid>
                     </Border>
                 </Grid>
-            </Border>
+            </Grid>
         </Grid>
     </Grid>
 </Window>

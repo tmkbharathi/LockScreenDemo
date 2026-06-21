@@ -28,6 +28,8 @@ namespace LockScreenDemo.Viewer
         private static readonly string SavedHostsFile = Path.Combine(SharedDir, "saved_hosts.txt");
 
         private readonly DispatcherTimer _timer;
+        private Process? _standaloneAgentProcess;
+        private bool _inSubPcMode = false;
 
         // Network connection state
         private TcpClient? _tcpClient;
@@ -58,9 +60,17 @@ namespace LockScreenDemo.Viewer
 
         private void Timer_Tick(object? sender, EventArgs e)
         {
-            UpdateStatus();
-            LoadScreenshot();
-            LoadLogs();
+            if (_inSubPcMode)
+            {
+                UpdateHostStatus();
+                LoadHostLogs();
+            }
+            else
+            {
+                UpdateStatus();
+                LoadScreenshot();
+                LoadLogs();
+            }
         }
 
         private void UpdateStatus()
@@ -715,6 +725,344 @@ namespace LockScreenDemo.Viewer
             {
                 client.Connect(IPAddress.Broadcast, 9);
                 client.Send(packetContent, packetContent.Length);
+            }
+        }
+
+        // --- SUB PC / HOST CONFIGURATION MODE LOGIC ---
+
+        private void SelectMainPcBtn_Click(object sender, RoutedEventArgs e)
+        {
+            ModeSelectionPanel.Visibility = Visibility.Collapsed;
+            MainPcPanel.Visibility = Visibility.Visible;
+            SubPcPanel.Visibility = Visibility.Collapsed;
+            _inSubPcMode = false;
+        }
+
+        private void SelectSubPcBtn_Click(object sender, RoutedEventArgs e)
+        {
+            ModeSelectionPanel.Visibility = Visibility.Collapsed;
+            MainPcPanel.Visibility = Visibility.Collapsed;
+            SubPcPanel.Visibility = Visibility.Visible;
+            _inSubPcMode = true;
+            PopulateLocalIpAddresses();
+            UpdateHostStatus();
+            LoadHostLogs();
+        }
+
+        private void BackToSelection_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_inSubPcMode && _isConnected)
+            {
+                Disconnect();
+            }
+
+            ModeSelectionPanel.Visibility = Visibility.Visible;
+            MainPcPanel.Visibility = Visibility.Collapsed;
+            SubPcPanel.Visibility = Visibility.Collapsed;
+        }
+
+        private void PopulateLocalIpAddresses()
+        {
+            var ips = new List<string>();
+            try
+            {
+                foreach (var nic in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (nic.OperationalStatus == System.Net.NetworkInformation.OperationalStatus.Up &&
+                        nic.NetworkInterfaceType != System.Net.NetworkInformation.NetworkInterfaceType.Loopback)
+                    {
+                        foreach (var ip in nic.GetIPProperties().UnicastAddresses)
+                        {
+                            if (ip.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                            {
+                                ips.Add(ip.Address.ToString());
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ips.Add($"Error: {ex.Message}");
+            }
+
+            if (ips.Count == 0)
+            {
+                ips.Add("127.0.0.1 (Loopback)");
+            }
+
+            LocalIpsTxt.Text = string.Join("\n", ips);
+        }
+
+        private string GetServiceStatus()
+        {
+            try
+            {
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "sc.exe",
+                    Arguments = "query LockScreenDemoService",
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+                using (var process = Process.Start(startInfo))
+                {
+                    if (process != null)
+                    {
+                        string output = process.StandardOutput.ReadToEnd();
+                        process.WaitForExit();
+                        if (output.Contains("RUNNING"))
+                        {
+                            return "Running";
+                        }
+                        else if (output.Contains("STOPPED"))
+                        {
+                            return "Stopped";
+                        }
+                        else if (output.Contains("FAILED") || output.Contains("1060"))
+                        {
+                            return "Not Installed";
+                        }
+                    }
+                }
+            }
+            catch { }
+            return "Not Installed";
+        }
+
+        private void UpdateHostStatus()
+        {
+            // 1. Service Status
+            string serviceStatus = GetServiceStatus();
+            if (serviceStatus == "Running")
+            {
+                HostServiceStatusIndicator.Fill = new SolidColorBrush(Color.FromRgb(34, 197, 94));
+                HostServiceStatusTxt.Text = "Running (Active)";
+            }
+            else if (serviceStatus == "Stopped")
+            {
+                HostServiceStatusIndicator.Fill = new SolidColorBrush(Color.FromRgb(245, 158, 11));
+                HostServiceStatusTxt.Text = "Stopped";
+            }
+            else
+            {
+                HostServiceStatusIndicator.Fill = new SolidColorBrush(Color.FromRgb(239, 68, 68));
+                HostServiceStatusTxt.Text = "Not Installed";
+            }
+
+            // 2. Agent Status
+            bool isAgentRunning = Process.GetProcessesByName("LockScreenDemo.Agent").Length > 0;
+            if (isAgentRunning)
+            {
+                HostAgentStatusIndicator.Fill = new SolidColorBrush(Color.FromRgb(34, 197, 94));
+                
+                string agentInfoStr = "Running";
+                if (_standaloneAgentProcess != null && !_standaloneAgentProcess.HasExited)
+                {
+                    agentInfoStr = $"Running Standalone (PID: {_standaloneAgentProcess.Id})";
+                }
+                else if (File.Exists(AgentInfoFile))
+                {
+                    try
+                    {
+                        var lines = File.ReadAllLines(AgentInfoFile);
+                        string pid = "";
+                        string session = "";
+                        foreach (var l in lines)
+                        {
+                            if (l.StartsWith("PID:")) pid = l.Substring(4);
+                            if (l.StartsWith("Session:")) session = l.Substring(8);
+                        }
+                        if (!string.IsNullOrEmpty(pid)) agentInfoStr = $"Running via Service (PID: {pid}, Session: {session})";
+                    }
+                    catch { }
+                }
+                HostAgentStatusTxt.Text = agentInfoStr;
+            }
+            else
+            {
+                HostAgentStatusIndicator.Fill = new SolidColorBrush(Color.FromRgb(239, 68, 68));
+                HostAgentStatusTxt.Text = "Not Running";
+            }
+        }
+
+        private void LoadHostLogs()
+        {
+            if (File.Exists(AgentLogFile))
+            {
+                try
+                {
+                    using (var fs = new FileStream(AgentLogFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    using (var sr = new StreamReader(fs))
+                    {
+                        string logs = sr.ReadToEnd();
+                        HostLogsBox.Text = logs;
+                        HostLogsBox.ScrollToEnd();
+                    }
+                }
+                catch
+                {
+                    // Ignore transient lock conflicts
+                }
+            }
+            else
+            {
+                HostLogsBox.Text = "Waiting for Agent logs...";
+            }
+        }
+
+        private string? FindScriptPath(string scriptName)
+        {
+            string baseDir = AppContext.BaseDirectory;
+            string current = baseDir;
+            for (int i = 0; i < 5; i++)
+            {
+                string path = Path.Combine(current, scriptName);
+                if (File.Exists(path)) return path;
+                string? parent = Directory.GetParent(current)?.FullName;
+                if (parent == null || parent == current) break;
+                current = parent;
+            }
+            return null;
+        }
+
+        private void RunPowershellScriptElevated(string scriptName)
+        {
+            string? scriptPath = FindScriptPath(scriptName);
+            if (scriptPath == null)
+            {
+                MessageBox.Show($"Could not locate script file: {scriptName}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            try
+            {
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\"",
+                    Verb = "runas",
+                    UseShellExecute = true
+                };
+                Process.Start(startInfo);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to execute script: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void RunCommandElevated(string fileName, string arguments)
+        {
+            try
+            {
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = fileName,
+                    Arguments = arguments,
+                    Verb = "runas",
+                    UseShellExecute = true,
+                    CreateNoWindow = true
+                };
+                Process.Start(startInfo);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to execute command: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void InstallServiceBtn_Click(object sender, RoutedEventArgs e)
+        {
+            RunPowershellScriptElevated("install.ps1");
+        }
+
+        private void UninstallServiceBtn_Click(object sender, RoutedEventArgs e)
+        {
+            RunPowershellScriptElevated("uninstall.ps1");
+        }
+
+        private void StartServiceBtn_Click(object sender, RoutedEventArgs e)
+        {
+            RunCommandElevated("sc.exe", "start LockScreenDemoService");
+        }
+
+        private void StopServiceBtn_Click(object sender, RoutedEventArgs e)
+        {
+            RunCommandElevated("sc.exe", "stop LockScreenDemoService");
+        }
+
+        private string? FindAgentPath()
+        {
+            string baseDir = AppContext.BaseDirectory;
+            string agentPath = Path.Combine(baseDir, "LockScreenDemo.Agent.exe");
+            if (File.Exists(agentPath)) return agentPath;
+
+            // Debug folders
+            string devPath = Path.Combine(baseDir, "..", "..", "..", "..", "LockScreenDemo.Agent", "bin", "Debug", "net10.0-windows", "LockScreenDemo.Agent.exe");
+            if (File.Exists(devPath)) return devPath;
+
+            string devPath2 = Path.Combine(baseDir, "..", "LockScreenDemo.Agent", "bin", "Debug", "net10.0-windows", "LockScreenDemo.Agent.exe");
+            if (File.Exists(devPath2)) return devPath2;
+
+            return null;
+        }
+
+        private void RunAgentStandaloneBtn_Click(object sender, RoutedEventArgs e)
+        {
+            string? agentPath = FindAgentPath();
+            if (agentPath == null)
+            {
+                MessageBox.Show("Could not find LockScreenDemo.Agent.exe. Please compile the solution first.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            try
+            {
+                foreach (var proc in Process.GetProcessesByName("LockScreenDemo.Agent"))
+                {
+                    proc.Kill();
+                }
+            }
+            catch { }
+
+            try
+            {
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = agentPath,
+                    UseShellExecute = true,
+                    CreateNoWindow = true
+                };
+                _standaloneAgentProcess = Process.Start(startInfo);
+                HostLogsBox.Text += $"[{DateTime.Now:HH:mm:ss}] Started standalone agent process.\n";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to start standalone Agent: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void StopAgentStandaloneBtn_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_standaloneAgentProcess != null && !_standaloneAgentProcess.HasExited)
+                {
+                    _standaloneAgentProcess.Kill();
+                    _standaloneAgentProcess = null;
+                }
+                
+                foreach (var proc in Process.GetProcessesByName("LockScreenDemo.Agent"))
+                {
+                    proc.Kill();
+                }
+                HostLogsBox.Text += $"[{DateTime.Now:HH:mm:ss}] Standalone agent stopped.\n";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to stop standalone Agent: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
     }
