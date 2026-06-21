@@ -33,7 +33,10 @@ jobs:
 
       # 4. Publish C# projects to .\publish
       - name: Publish Binaries
-        run: dotnet publish LockScreenDemo.slnx -c Release -o .\publish --self-contained false
+        run: |
+          dotnet publish LockScreenDemo.Service/LockScreenDemo.Service.csproj -c Release -o .\publish --self-contained false /p:UseSharedCompilation=false
+          dotnet publish LockScreenDemo.Agent/LockScreenDemo.Agent.csproj -c Release -o .\publish --self-contained false /p:UseSharedCompilation=false
+          dotnet publish LockScreenDemo.Viewer/LockScreenDemo.Viewer.csproj -c Release -o .\publish --self-contained false /p:UseSharedCompilation=false
 
       # 5. Compile Inno Setup Script
       - name: Compile Inno Setup Installer
