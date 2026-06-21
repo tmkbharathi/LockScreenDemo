@@ -916,10 +916,14 @@ namespace LockScreenDemo.Viewer
         {
             string baseDir = AppContext.BaseDirectory;
             string current = baseDir;
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < 10; i++)
             {
                 string path = Path.Combine(current, scriptName);
                 if (File.Exists(path)) return path;
+                
+                string siblingPath = Path.Combine(current, "LockScreenDemo", scriptName);
+                if (File.Exists(siblingPath)) return siblingPath;
+
                 string? parent = Directory.GetParent(current)?.FullName;
                 if (parent == null || parent == current) break;
                 current = parent;
@@ -999,13 +1003,22 @@ namespace LockScreenDemo.Viewer
             string agentPath = Path.Combine(baseDir, "LockScreenDemo.Agent.exe");
             if (File.Exists(agentPath)) return agentPath;
 
-            // Debug folders
-            string devPath = Path.Combine(baseDir, "..", "..", "..", "..", "LockScreenDemo.Agent", "bin", "Debug", "net10.0-windows", "LockScreenDemo.Agent.exe");
-            if (File.Exists(devPath)) return devPath;
+            string current = baseDir;
+            for (int i = 0; i < 10; i++)
+            {
+                string path1 = Path.Combine(current, "LockScreenDemo.Agent.exe");
+                if (File.Exists(path1)) return path1;
 
-            string devPath2 = Path.Combine(baseDir, "..", "LockScreenDemo.Agent", "bin", "Debug", "net10.0-windows", "LockScreenDemo.Agent.exe");
-            if (File.Exists(devPath2)) return devPath2;
+                string path2 = Path.Combine(current, "LockScreenDemo.Agent", "bin", "Debug", "net10.0-windows", "LockScreenDemo.Agent.exe");
+                if (File.Exists(path2)) return path2;
 
+                string path3 = Path.Combine(current, "LockScreenDemo", "LockScreenDemo.Agent", "bin", "Debug", "net10.0-windows", "LockScreenDemo.Agent.exe");
+                if (File.Exists(path3)) return path3;
+
+                string? parent = Directory.GetParent(current)?.FullName;
+                if (parent == null || parent == current) break;
+                current = parent;
+            }
             return null;
         }
 

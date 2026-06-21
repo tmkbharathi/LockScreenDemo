@@ -1,0 +1,48 @@
+# .github/workflows/build-installer.yml
+name: Build & Package Installer
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch: # Allows manual trigger from the GitHub Actions UI
+
+jobs:
+  build-and-package:
+    runs-on: windows-latest
+
+    steps:
+      # 1. Checkout Repository
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 2. Install .NET SDK 10
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # 3. Restore dependencies
+      - name: Restore dependencies
+        run: dotnet restore LockScreenDemo.slnx
+
+      # 4. Publish C# projects to .\publish
+      - name: Publish Binaries
+        run: dotnet publish LockScreenDemo.slnx -c Release -o .\publish --self-contained false
+
+      # 5. Compile Inno Setup Script
+      - name: Compile Inno Setup Installer
+        run: iscc installer.iss
+
+      # 6. Upload compiled installer .exe as run artifact
+      - name: Upload Setup Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LockScreenDemoInstaller
+          path: Output\LockScreenDemoSetup.exe
+          if-no-files-found: error
