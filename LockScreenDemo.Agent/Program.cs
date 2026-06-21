@@ -220,6 +220,11 @@ namespace LockScreenDemo.Agent
                                 Log("Executing remote LockWorkStation...");
                                 LockWorkStation();
                             }
+                            else if (commandStr == "SAS")
+                            {
+                                Log("Executing remote SendSAS...");
+                                SendSasRemote();
+                            }
                             else if (commandStr.StartsWith("UNLOCK:"))
                             {
                                 string password = commandStr.Substring(7);
@@ -717,6 +722,102 @@ namespace LockScreenDemo.Agent
             catch (Exception ex)
             {
                 Log($"Error during remote unlock: {ex.Message}");
+            }
+        }
+
+        private static void SendSasRemote()
+        {
+            try
+            {
+                Log("Starting remote SAS (Ctrl+Alt+Del) sequence...");
+
+                // 1. Switch to Winlogon/active input desktop
+                string desktopName;
+                SwitchToInputDesktop(out desktopName);
+                Log($"Current desktop for SAS: {desktopName}");
+
+                // 2. Open HKLM policies key
+                const string keyPath = @"Software\Microsoft\Windows\CurrentVersion\Policies\System";
+                const string valueName = "SoftwareSASGeneration";
+                
+                int? originalValue = null;
+
+                try
+                {
+                    using (var hklm = Microsoft.Win32.RegistryKey.OpenBaseKey(Microsoft.Win32.RegistryHive.LocalMachine, Microsoft.Win32.RegistryView.Registry64))
+                    using (var key = hklm.OpenSubKey(keyPath, true))
+                    {
+                        if (key != null)
+                        {
+                            object val = key.GetValue(valueName);
+                            if (val != null && val is int intVal)
+                            {
+                                if (intVal != 1 && intVal != 3)
+                                {
+                                    originalValue = intVal;
+                                    Log($"SoftwareSASGeneration is {intVal}. Temporarily setting to 1 to allow SAS.");
+                                    key.SetValue(valueName, 1, Microsoft.Win32.RegistryValueKind.DWord);
+                                }
+                            }
+                            else
+                            {
+                                // Value doesn't exist
+                                originalValue = 0; // represent 'delete' or 'not set'
+                                Log("SoftwareSASGeneration is not set. Temporarily setting to 1 to allow SAS.");
+                                key.SetValue(valueName, 1, Microsoft.Win32.RegistryValueKind.DWord);
+                            }
+                        }
+                        else
+                        {
+                            Log("WARNING: Failed to open Policies\\System registry key for writing. Ensure the Agent is running with Admin/SYSTEM privileges.");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log($"Registry modification error: {ex.Message}. Attempting SendSAS anyway.");
+                }
+
+                // 3. Call SendSAS
+                Log("Invoking SendSAS(false)...");
+                NativeMethods.SendSAS(false);
+                Log("SendSAS call completed.");
+
+                // 4. Restore original registry setting if we modified it
+                if (originalValue.HasValue)
+                {
+                    try
+                    {
+                        // Delay slightly to ensure SendSAS has read the setting
+                        Thread.Sleep(100);
+
+                        using (var hklm = Microsoft.Win32.RegistryKey.OpenBaseKey(Microsoft.Win32.RegistryHive.LocalMachine, Microsoft.Win32.RegistryView.Registry64))
+                        using (var key = hklm.OpenSubKey(keyPath, true))
+                        {
+                            if (key != null)
+                            {
+                                if (originalValue.Value == 0)
+                                {
+                                    Log("Restoring registry: Deleting SoftwareSASGeneration.");
+                                    key.DeleteValue(valueName, false);
+                                }
+                                else
+                                {
+                                    Log($"Restoring registry: Setting SoftwareSASGeneration back to {originalValue.Value}.");
+                                    key.SetValue(valueName, originalValue.Value, Microsoft.Win32.RegistryValueKind.DWord);
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"Registry restoration error: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"Error executing remote SAS: {ex.Message}\n{ex.StackTrace}");
             }
         }
     }

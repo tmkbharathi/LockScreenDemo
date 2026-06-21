@@ -421,5 +421,9 @@ namespace LockScreenDemo.Shared
 
         [DllImport("kernel32.dll", SetLastError = true)]
         public static extern IntPtr GlobalFree(IntPtr hMem);
+
+        // --- SAS WIN32 API ---
+        [DllImport("sas.dll", SetLastError = true)]
+        public static extern void SendSAS(bool AsUser);
     }
 }

@@ -222,6 +222,25 @@ namespace LockScreenDemo.Viewer
             }
         }
 
+        private void RemoteSasBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_isConnected || _sslStream == null) return;
+            try
+            {
+                byte[] payload = Encoding.UTF8.GetBytes("SAS");
+                lock (_networkLock)
+                {
+                    ProtocolHelper.WritePacket(_sslStream, PacketType.SystemCommand, payload);
+                }
+                Log("Sent remote SAS command to Sub PC.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to send SAS command: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                Disconnect();
+            }
+        }
+
         private void RemoteUnlockBtn_Click(object sender, RoutedEventArgs e)
         {
             if (!_isConnected || _sslStream == null) return;
