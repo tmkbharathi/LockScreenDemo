@@ -233,14 +233,55 @@ namespace LockScreenDemo.Agent
 
         private static X509Certificate2 GenerateSelfSignedCertificate()
         {
-            RSA rsa = RSA.Create(2048);
-            var request = new CertificateRequest("cn=LockScreenDemo", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-            X509Certificate2 certificate = request.CreateSelfSigned(DateTimeOffset.Now.AddDays(-1), DateTimeOffset.Now.AddYears(1));
-            
-            // Return the certificate with the private key directly bound to it.
-            // This avoids both the disk-based MachineKeySet permissions issues (which cause 0xC0000005 crashes)
-            // and the EphemeralKeySet SslStream handshake failures.
-            return certificate.CopyWithPrivateKey(rsa);
+            using (RSA rsa = RSA.Create(2048))
+            {
+                var request = new CertificateRequest("cn=LockScreenDemo", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                using (X509Certificate2 tempCert = request.CreateSelfSigned(DateTimeOffset.Now.AddDays(-1), DateTimeOffset.Now.AddYears(1)))
+                {
+                    byte[] pfxData = tempCert.Export(X509ContentType.Pkcs12, "password");
+
+                    // Try 1: MachineKeySet (standard for SYSTEM account services)
+                    try
+                    {
+                        Log("Attempting to load certificate using MachineKeySet...");
+                        var cert = new X509Certificate2(pfxData, "password", X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.Exportable);
+                        Log("Successfully loaded certificate using MachineKeySet.");
+                        return cert;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"MachineKeySet load failed: {ex.Message}. Trying UserKeySet...");
+                    }
+
+                    // Try 2: Exportable (UserKeySet)
+                    try
+                    {
+                        var cert = new X509Certificate2(pfxData, "password", X509KeyStorageFlags.Exportable);
+                        Log("Successfully loaded certificate using UserKeySet.");
+                        return cert;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"UserKeySet load failed: {ex.Message}. Trying DefaultKeySet...");
+                    }
+
+                    // Try 3: DefaultKeySet
+                    try
+                    {
+                        var cert = new X509Certificate2(pfxData, "password", X509KeyStorageFlags.DefaultKeySet);
+                        Log("Successfully loaded certificate using DefaultKeySet.");
+                        return cert;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"DefaultKeySet load failed: {ex.Message}. Falling back to CopyWithPrivateKey...");
+                    }
+
+                    // Fallback: CopyWithPrivateKey (ephemeral, works for loopback but might fail for remote)
+                    Log("Using CopyWithPrivateKey fallback.");
+                    return tempCert.CopyWithPrivateKey(rsa);
+                }
+            }
         }
 
         private static void SimulateMouse(MouseMsgType type, int x, int y, int wheelDelta)
