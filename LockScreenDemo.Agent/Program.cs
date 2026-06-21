@@ -89,7 +89,7 @@ namespace LockScreenDemo.Agent
             {
                 sslStream = new SslStream(client.GetStream(), false);
                 Log("Initiating SSL/TLS handshake...");
-                sslStream.AuthenticateAsServer(certificate, false, System.Security.Authentication.SslProtocols.Tls13, false);
+                sslStream.AuthenticateAsServer(certificate, false, System.Security.Authentication.SslProtocols.None, false);
                 Log("SSL/TLS handshake completed. Connection encrypted.");
 
                 // Send host MAC address for Wake-on-LAN support
@@ -236,7 +236,7 @@ namespace LockScreenDemo.Agent
             }
             catch (Exception ex)
             {
-                Log($"Secure Client Connection error: {ex.Message}");
+                Log($"Secure Client Connection error: {ex}");
             }
             finally
             {
