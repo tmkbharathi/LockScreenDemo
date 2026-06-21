@@ -1,0 +1,72 @@
+# install.ps1
+# This script must be run as Administrator in PowerShell.
+
+$ErrorActionPreference = "Stop"
+
+Write-Host "=============================================" -ForegroundColor Cyan
+Write-Host " Installing LockScreenDemo Windows Service " -ForegroundColor Cyan
+Write-Host "=============================================" -ForegroundColor Cyan
+
+# 1. Self-elevation check
+$currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Error "This script MUST be run as an Administrator. Please restart PowerShell as Administrator."
+    Exit
+}
+
+$InstallDir = "C:\ProgramData\LockScreenDemo"
+$BinDir = "$InstallDir\bin"
+
+# Stop existing service if running
+if (Get-Service -Name "LockScreenDemoService" -ErrorAction SilentlyContinue) {
+    Write-Host "Stopping existing LockScreenDemoService..." -ForegroundColor Yellow
+    sc.exe stop LockScreenDemoService | Out-Null
+    Start-Sleep -Seconds 2
+    Write-Host "Deleting existing LockScreenDemoService..." -ForegroundColor Yellow
+    sc.exe delete LockScreenDemoService | Out-Null
+    Start-Sleep -Seconds 1
+}
+
+# Kill any running Agent or Viewer processes to free files
+Write-Host "Terminating existing Agent and Viewer processes..." -ForegroundColor Yellow
+Get-Process -Name "LockScreenDemo.Agent" -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process -Name "LockScreenDemo.Viewer" -ErrorAction SilentlyContinue | Stop-Process -Force
+
+# Create target directories
+if (-not (Test-Path $InstallDir)) {
+    New-Item -ItemType Directory -Path $InstallDir | Out-Null
+}
+if (-not (Test-Path $BinDir)) {
+    New-Item -ItemType Directory -Path $BinDir | Out-Null
+}
+
+# 2. Compile and Publish the solution
+Write-Host "Compiling and publishing solution..." -ForegroundColor Cyan
+dotnet publish LockScreenDemo.slnx -c Release -o "$BinDir" --self-contained false
+
+# Verify output files exist
+if (-not (Test-Path "$BinDir\LockScreenDemo.Service.exe")) {
+    Write-Error "Compilation failed. LockScreenDemo.Service.exe not found."
+    Exit
+}
+
+# 3. Create Windows Service
+Write-Host "Registering LockScreenDemoService..." -ForegroundColor Cyan
+$ServicePath = "$BinDir\LockScreenDemo.Service.exe"
+# We wrap path in quotes to handle spaces correctly
+sc.exe create LockScreenDemoService binPath= "`"$ServicePath`"" start= auto | Out-Null
+sc.exe description LockScreenDemoService "Windows Lock Screen Access Proof-of-Concept Service" | Out-Null
+
+# 4. Start Windows Service
+Write-Host "Starting LockScreenDemoService..." -ForegroundColor Cyan
+sc.exe start LockScreenDemoService | Out-Null
+
+Write-Host ""
+Write-Host "Installation Complete!" -ForegroundColor Green
+Write-Host "The service is now running and monitoring user sessions." -ForegroundColor Green
+Write-Host "Check output files and screenshot at: $InstallDir" -ForegroundColor Green
+Write-Host ""
+Write-Host "Launching WPF Viewer..." -ForegroundColor Cyan
+
+# Spawn WPF Viewer
+Start-Process "$BinDir\LockScreenDemo.Viewer.exe"

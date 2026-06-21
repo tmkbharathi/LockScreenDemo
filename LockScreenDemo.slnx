@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="LockScreenDemo.Agent/LockScreenDemo.Agent.csproj" />
+  <Project Path="LockScreenDemo.Service/LockScreenDemo.Service.csproj" />
+  <Project Path="LockScreenDemo.Shared/LockScreenDemo.Shared.csproj" />
+  <Project Path="LockScreenDemo.Viewer/LockScreenDemo.Viewer.csproj" />
+</Solution>
