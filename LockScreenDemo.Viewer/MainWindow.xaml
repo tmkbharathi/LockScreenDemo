@@ -146,7 +146,7 @@
                 <Button Grid.Column="0" x:Name="BackFromViewerBtn" Content="← Menu" Style="{StaticResource PremiumButtonStyle}" Padding="12,6" VerticalAlignment="Center" Click="BackToSelection_Click" Margin="0,0,15,0"/>
                 
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="LOCK SCREEN ACCESS DEMO" FontSize="22" FontWeight="Bold" Foreground="White"/>
+                    <TextBlock Text="LOCK SCREEN DEMO" FontSize="22" FontWeight="Bold" Foreground="White"/>
                     <TextBlock Text="Proof-of-Concept: Service-Agent Session Token Duplication" FontSize="11" Foreground="#94A3B8" Margin="0,2,0,0"/>
                 </StackPanel>
 
