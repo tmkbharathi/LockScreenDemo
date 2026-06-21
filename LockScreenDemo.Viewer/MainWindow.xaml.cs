@@ -203,6 +203,51 @@ namespace LockScreenDemo.Viewer
             }
         }
 
+        private void RemoteLockBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_isConnected || _sslStream == null) return;
+            try
+            {
+                byte[] payload = Encoding.UTF8.GetBytes("LOCK");
+                lock (_networkLock)
+                {
+                    ProtocolHelper.WritePacket(_sslStream, PacketType.SystemCommand, payload);
+                }
+                Log("Sent remote Lock command to Sub PC.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to send lock command: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                Disconnect();
+            }
+        }
+
+        private void RemoteUnlockBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_isConnected || _sslStream == null) return;
+            string password = UnlockPasswordInput.Password;
+            if (string.IsNullOrEmpty(password))
+            {
+                MessageBox.Show("Please enter the Sub PC password to unlock.", "Unlock", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            try
+            {
+                byte[] payload = Encoding.UTF8.GetBytes($"UNLOCK:{password}");
+                lock (_networkLock)
+                {
+                    ProtocolHelper.WritePacket(_sslStream, PacketType.SystemCommand, payload);
+                }
+                Log("Sent remote Unlock command with password to Sub PC.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to send unlock command: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                Disconnect();
+            }
+        }
+
         // --- SECURE TCP CONNECTION CONTROLS ---
 
         private async void ConnectBtn_Click(object sender, RoutedEventArgs e)
@@ -242,6 +287,8 @@ namespace LockScreenDemo.Viewer
                 // UI adjustments
                 ConnectBtn.Visibility = Visibility.Collapsed;
                 DisconnectBtn.Visibility = Visibility.Visible;
+                RemoteControlsPanel.Visibility = Visibility.Visible;
+                LocalLockBtn.Visibility = Visibility.Collapsed;
                 WakeBtn.IsEnabled = false;
                 LockScreenImg.Cursor = Cursors.Cross;
                 NoFeedTxt.Text = "Connecting and waiting for secure screen stream...";
@@ -292,6 +339,8 @@ namespace LockScreenDemo.Viewer
             // UI adjustments
             ConnectBtn.Visibility = Visibility.Visible;
             DisconnectBtn.Visibility = Visibility.Collapsed;
+            RemoteControlsPanel.Visibility = Visibility.Collapsed;
+            LocalLockBtn.Visibility = Visibility.Visible;
             IpInput.IsEnabled = true;
             LockScreenImg.Cursor = Cursors.Arrow;
             NoFeedTxt.Text = "Disconnected. Enter IP to reconnect.";

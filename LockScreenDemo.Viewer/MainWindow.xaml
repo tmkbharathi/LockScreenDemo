@@ -155,8 +155,15 @@
                     <TextBox x:Name="IpInput" Text="127.0.0.1" Width="120" Height="30" VerticalContentAlignment="Center" Background="#1E293B" Foreground="White" BorderBrush="#3A3F58" Margin="0,0,10,0" Padding="5,0" TextChanged="IpInput_TextChanged"/>
                     <Button x:Name="WakeBtn" Content="Wake" Style="{StaticResource PremiumButtonStyle}" Background="#10B981" Padding="15,6" Click="WakeBtn_Click" Margin="0,0,10,0" IsEnabled="False"/>
                     <Button x:Name="ConnectBtn" Content="Connect" Style="{StaticResource PremiumButtonStyle}" Padding="15,6" Click="ConnectBtn_Click" Margin="0,0,10,0"/>
-                    <Button x:Name="DisconnectBtn" Content="Disconnect" Style="{StaticResource PremiumButtonStyle}" Background="#EF4444" Padding="15,6" Click="DisconnectBtn_Click" Margin="0,0,20,0" Visibility="Collapsed"/>
-                    <Button Content="Lock Windows (Win+L)" Style="{StaticResource PremiumButtonStyle}" Padding="15,6" Click="LockBtn_Click"/>
+                    <Button x:Name="DisconnectBtn" Content="Disconnect" Style="{StaticResource PremiumButtonStyle}" Background="#EF4444" Padding="15,6" Click="DisconnectBtn_Click" Margin="0,0,15,0" Visibility="Collapsed"/>
+                    
+                    <StackPanel x:Name="RemoteControlsPanel" Orientation="Horizontal" Visibility="Collapsed" VerticalAlignment="Center">
+                        <Button x:Name="RemoteLockBtn" Content="🔒 Remote Lock" Style="{StaticResource PremiumButtonStyle}" Background="#E11D48" Padding="12,6" Click="RemoteLockBtn_Click" Margin="0,0,10,0"/>
+                        <PasswordBox x:Name="UnlockPasswordInput" Width="110" Height="30" VerticalContentAlignment="Center" Background="#1E293B" Foreground="White" BorderBrush="#3A3F58" Margin="0,0,6,0" Padding="5,0"/>
+                        <Button x:Name="RemoteUnlockBtn" Content="🔓 Remote Unlock" Style="{StaticResource PremiumButtonStyle}" Background="#2563EB" Padding="12,6" Click="RemoteUnlockBtn_Click" Margin="0,0,10,0"/>
+                    </StackPanel>
+                    
+                    <Button x:Name="LocalLockBtn" Content="Lock Local (Win+L)" Style="{StaticResource PremiumButtonStyle}" Padding="15,6" Click="LockBtn_Click"/>
                 </StackPanel>
             </Grid>
 

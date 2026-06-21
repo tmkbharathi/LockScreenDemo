@@ -212,6 +212,21 @@ namespace LockScreenDemo.Agent
                                 SetClipboardTextNative(receivedText);
                             }
                             break;
+
+                        case PacketType.SystemCommand:
+                            string commandStr = Encoding.UTF8.GetString(payload);
+                            Log($"Received system command from client: {commandStr}");
+                            if (commandStr == "LOCK")
+                            {
+                                Log("Executing remote LockWorkStation...");
+                                LockWorkStation();
+                            }
+                            else if (commandStr.StartsWith("UNLOCK:"))
+                            {
+                                string password = commandStr.Substring(7);
+                                UnlockWorkStationRemote(password);
+                            }
+                            break;
                     }
                 }
 
@@ -609,6 +624,76 @@ namespace LockScreenDemo.Agent
             catch
             {
                 // Ignore log errors
+            }
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool LockWorkStation();
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern short VkKeyScan(char ch);
+
+        private static void UnlockWorkStationRemote(string password)
+        {
+            try
+            {
+                Log("Starting remote unlock sequence...");
+                // 1. Switch to Winlogon desktop
+                string desktopName;
+                SwitchToInputDesktop(out desktopName);
+                Log($"Current desktop: {desktopName}");
+
+                // 2. Dismiss lock screen (Send Spacebar key down/up)
+                Log("Dismissing lock screen...");
+                SimulateKeyboard(0x20, 0, 0, false); // Space down
+                Thread.Sleep(50);
+                SimulateKeyboard(0x20, 0, 0, true);  // Space up
+                
+                // Wait for the login fields to show up
+                Thread.Sleep(500);
+
+                // 3. Ensure we are still bound to the active input desktop
+                SwitchToInputDesktop(out _);
+
+                // 4. Type the password characters
+                Log("Typing password...");
+                foreach (char c in password)
+                {
+                    short vk = VkKeyScan(c);
+                    if (vk != -1)
+                    {
+                        byte virtualKey = (byte)(vk & 0xff);
+                        bool shift = (vk & 0x100) != 0;
+
+                        if (shift)
+                        {
+                            SimulateKeyboard(0x10, 0, 0, false); // Shift down
+                            Thread.Sleep(10);
+                        }
+
+                        SimulateKeyboard(virtualKey, 0, 0, false); // Key down
+                        Thread.Sleep(10);
+                        SimulateKeyboard(virtualKey, 0, 0, true);  // Key up
+
+                        if (shift)
+                        {
+                            Thread.Sleep(10);
+                            SimulateKeyboard(0x10, 0, 0, true);  // Shift up
+                        }
+                        
+                        Thread.Sleep(25);
+                    }
+                }
+
+                // 5. Send Enter key down/up
+                Log("Sending Enter key to log in...");
+                SimulateKeyboard(0x0D, 0, 0, false); // Enter down
+                Thread.Sleep(50);
+                SimulateKeyboard(0x0D, 0, 0, true);  // Enter up
+            }
+            catch (Exception ex)
+            {
+                Log($"Error during remote unlock: {ex.Message}");
             }
         }
     }
