@@ -6,11 +6,16 @@ on:
     branches:
       - main
       - master
+    tags:
+      - '*'
   pull_request:
     branches:
       - main
       - master
   workflow_dispatch: # Allows manual trigger from the GitHub Actions UI
+
+permissions:
+  contents: write
 
 jobs:
   build-and-package:
@@ -49,3 +54,11 @@ jobs:
           name: LockScreenDemoInstaller
           path: Output\LockScreenDemoSetup.exe
           if-no-files-found: error
+
+      # 7. Create GitHub Release and Upload Installer (only on tags)
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Output/LockScreenDemoSetup.exe
+          generate_release_notes: true
