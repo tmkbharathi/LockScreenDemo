@@ -1,40 +1,89 @@
 # LockScreenDemo - Windows Lock Screen Access & Remote Control PoC
 
-This project is a complete C# (.NET 10) Proof-of-Concept demonstrating the **Windows Service-Agent Session Token Duplication** architecture. It shows how a background service can access, stream, and control a Windows session—even when the screen is locked, logged out, or displaying a Secure UAC (User Account Control) prompt.
+This project is a high-performance, secure C# (.NET 10) Proof-of-Concept demonstrating the **Windows Service-Agent Session Token Duplication** architecture. It showcases how a system service can spawn an agent inside any interactive session to capture, stream, and control the user interface—even when the workstation is locked, logged out, or displaying a Secure UAC (User Account Control) prompt.
 
 ---
 
-## Technical Architecture
+## High-Level Architecture Flow
 
-The project consists of three main components:
+The flowchart below illustrates how the background service monitors sessions, duplicates system tokens, spawns the Agent process, and establishes secure remote control communication:
 
-1. **Windows Service (`LockScreenDemo.Service`)**:
-   * Runs in **Session 0** with `LocalSystem` privileges.
-   * Monitors active session IDs. When a session is active, it locates `winlogon.exe` (the logon interface) for that session, duplicates its security token, and calls `CreateProcessAsUserW` to spawn the Agent inside that interactive session under the `SYSTEM` context.
-2. **Session Agent (`LockScreenDemo.Agent`)**:
-   * Runs inside the active user session as `SYSTEM`.
-   * **TCP SSL Server**: Listens on port `5800` using secure `SslStream` with an in-memory self-signed certificate.
-   * **Desktop Switcher**: Regularly calls `OpenInputDesktop` and `SetThreadDesktop` to bind itself to the active desktop context (e.g. `Default` when unlocked, `Winlogon` when locked).
-   * **Screen Streamer & Input Injector**: Captures screen frames using GDI, compresses them into JPEGs, and streams them over SSL. Receives keyboard/mouse commands and simulates them using the `SendInput` API.
-   * **Native Clipboard Sync**: Hooks and synchronizes clipboard text using native Win32 clipboard functions.
-3. **Viewer Client (`LockScreenDemo.Viewer`)**:
-   * An interactive, dark-themed WPF application.
-   * Connects to port `5800` using `SslStream` (trusting the self-signed cert).
-   * Renders the real-time screen stream and intercepts mouse moves, clicks, scrolls, and keystrokes, routing them over the network.
-   * Translates client viewport coordinates to remote coordinates using aspect-ratio letterbox compensation.
-   * Syncs the local client clipboard with the remote host clipboard.
+```mermaid
+graph TD
+    subgraph Session0 [Session 0: Background Services]
+        style Session0 fill:#111,stroke:#333,stroke-width:2px,color:#fff
+        Service[LockScreenDemo.Service<br>Runs as LocalSystem]
+    end
+
+    subgraph SessionX [Session X: Active Interactive Session]
+        style SessionX fill:#222,stroke:#555,stroke-width:2px,color:#fff
+        Winlogon[winlogon.exe<br>Interactive System Process]
+        Agent[LockScreenDemo.Agent<br>Interactive Session Agent]
+        Desktop[Active Input Desktop<br>Default / Winlogon / UAC]
+    end
+
+    subgraph ClientPC [Client Machine]
+        style ClientPC fill:#1a1a2e,stroke:#0f3460,stroke-width:2px,color:#fff
+        Viewer[LockScreenDemo.Viewer<br>WPF Client App]
+    end
+
+    %% Lifecycle Steps
+    Service -->|1. Poll WTSGetActiveConsoleSessionId| SessionX
+    Service -->|2. OpenProcess | Winlogon
+    Service -->|3. DuplicateTokenEx| Token[Duplicated Primary Token]
+    Token -->|4. CreateProcessAsUserW| Agent
+    
+    %% Agent Execution Loop
+    Agent -->|5. OpenInputDesktop / SetThreadDesktop| Desktop
+    Agent -->|6. GDI Capture & Clipboard Hook| Desktop
+    
+    %% Communication & Remote Control
+    Viewer -->|7. Connect via Port 5800 SSL/TLS| Agent
+    Agent -->|8. Send Compressed JPEG Frames| Viewer
+    Viewer -->|9. Send Keyboard/Mouse Events| Agent
+    Agent -->|10. SendInput Simulation| Desktop
+```
+
+---
+
+## Core Components
+
+The solution is divided into three key components to enforce proper Windows privilege boundaries:
+
+### 1. Windows Service (`LockScreenDemo.Service`)
+* **Privileged Host**: Runs in **Session 0** under the `LocalSystem` security context.
+* **Session Monitor**: Continuously polls the active console session ID via Win32 `WTSGetActiveConsoleSessionId`.
+* **Token Duplication**: 
+  - Locates `winlogon.exe` (running as `SYSTEM` inside the target interactive session).
+  - Obtains its primary token and duplicates it with `SecurityImpersonation` levels using `DuplicateTokenEx`.
+  - Spawns `LockScreenDemo.Agent` inside the interactive session using `CreateProcessAsUserW`, setting its station and desktop to `winsta0\default`.
+
+### 2. Session Agent (`LockScreenDemo.Agent`)
+* **Interactive SYSTEM Access**: Spawned in the interactive user session, giving it access to interact with secure UI elements.
+* **Desktop Hook Loop**: Spawns a dedicated thread running `OpenInputDesktop` and `SetThreadDesktop` regularly to dynamically re-attach itself to whichever desktop becomes active (e.g. `Default` for user session, `Winlogon` for locked screen / UAC prompts).
+* **SSL Stream Server**: Launches an SSL/TLS socket server on TCP Port `5800` using `SslStream` and an ephemeral, in-memory self-signed certificate.
+* **Screen Streamer**: Captures the desktop context using GDI API, compresses the frames into JPEG bytes, and streams them over the network.
+* **Input Injection**: Parses received keyboard/mouse packets and translates them into native Win32 `SendInput` calls.
+* **Clipboard Hook**: Implements a native clipboard watcher thread to monitor local clipboard modifications and synchronizes text changes to the Viewer.
+
+### 3. Viewer Client (`LockScreenDemo.Viewer`)
+* **Operator Console**: A WPF client application styled with a premium dark interface.
+* **SSL Client**: Establishes an encrypted SSL socket connection to the Agent at Port `5800` (automatically trusting the self-signed certificate).
+* **Viewport Translation**: Decodes screen JPEGs and scales them to fit the client viewport, maintaining aspect ratio while compensating for mouse coordinate translation.
+* **Input Handler**: Intercepts mouse movement, scrolling, clicks, and keystrokes, encoding them into simple network packets.
+* **Clipboard Synchronization**: Detects operator clipboard updates and forwards them to the remote agent.
 
 ---
 
 ## Folder Structure
 
 * `LockScreenDemo.slnx` - Visual Studio XML Solution file.
-* **`LockScreenDemo.Shared`** - P/Invoke bindings (`NativeMethods.cs`) and network packet serialization (`Protocol.cs`).
-* **`LockScreenDemo.Service`** - Windows Service lifecycle worker.
-* **`LockScreenDemo.Agent`** - Socket server, screen capture, and Win32 simulation loops.
-* **`LockScreenDemo.Viewer`** - WPF client app.
-* `install.ps1` - PowerShell script to publish, register, and start the service.
-* `uninstall.ps1` - PowerShell script to stop and uninstall the service.
+* **`LockScreenDemo.Shared`** - Contains P/Invoke Win32 API declarations (`NativeMethods.cs`) and TCP network packets (`Protocol.cs`).
+* **`LockScreenDemo.Service`** - Background Windows service code to monitor sessions and duplicate tokens.
+* **`LockScreenDemo.Agent`** - Socket server, GDI capture, input injection, and desktop redirection logic.
+* **`LockScreenDemo.Viewer`** - WPF client app codebase.
+* `install.ps1` - PowerShell script to build, register, and start the service.
+* `uninstall.ps1` - PowerShell script to clean up the service and directories.
 
 ---
 
@@ -44,131 +93,78 @@ The project consists of three main components:
 
 * Windows OS
 * .NET 10 SDK or Runtime installed
-* Administrator privileges (to register services)
+* Administrator privileges (to register and run Windows services)
 
 ### Installation
 
 1. Open a **PowerShell** window.
-2. Run this command to launch the installer with Administrator permissions:
+2. Run the installer script elevated to compile and launch the POC automatically:
 
    ```powershell
-   cd "c:\Users\Manikanda Bharathi\Desktop\pooj\rustdesk-master\LockScreenDemo"
+   # Navigate to the LockScreenDemo directory (if not already there):
+   # cd path\to\LockScreenDemo
    Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File .\install.ps1" -Verb RunAs
    ```
 
-3. A separate elevated window will open, build the solution in Release mode, copy the files to `C:\ProgramData\LockScreenDemo\bin\`, register the service, start it, and launch the **Viewer**.
+3. The script compiles the solution in Release mode, copies binaries to `C:\ProgramData\LockScreenDemo\bin\`, registers the service, starts it, and launches the **Viewer**.
 
 ---
 
-## How to Test
+## Verification & Testing
 
-### Test 1: Local Loopback (Same PC)
+### Test 1: Local Loopback
+1. Run the Viewer, enter `127.0.0.1`, and click **Connect**.
+2. See your screen rendered inside the Viewer, and control your cursor securely over SSL loopback.
+3. Disconnect by clicking **Disconnect** or pressing `Esc`.
 
-1. On the Viewer window, type `127.0.0.1` and click **Connect**.
-2. You will see your own screen streamed inside the preview window.
-3. Move and click your mouse inside the preview box. You will see it control your local cursor (looping back securely through SSL!).
-4. Disconnect by clicking **Disconnect** or pressing `Esc`.
+### Test 2: Remote VM Testing
+1. Install the service on a **Server Virtual Machine (VM)**.
+2. Open port `5800` in the Server VM's firewall:
+   ```powershell
+   New-NetFirewallRule -DisplayName "LockScreenDemo" -Direction Inbound -LocalPort 5800 -Protocol TCP -Action Allow
+   ```
+3. Copy the compiled WPF Viewer (`LockScreenDemo.Viewer.exe`) to a **Client PC**.
+4. Input the VM's IP address in the Viewer and click **Connect**.
 
-### Test 2: Remote Control (Different PCs / Virtual Machines)
-
-To test connectivity between different PCs or using Virtual Machines (VMs):
-
-1. **Server PC (Controlled PC / VM 1)**: Run the installation script. Note its IP Address (e.g. `192.168.1.100` or `192.168.56.101`).
-2. **Client PC (Viewer PC / VM 2)**:
-   * Copy the published binary folder `C:\ProgramData\LockScreenDemo\bin` to the Client PC.
-   * Run `LockScreenDemo.Viewer.exe`.
-   * Type the Server PC's IP address and click **Connect**.
-3. You will now see the Server PC's screen. Move and click your mouse, or type on your keyboard to control the Server PC.
-
-### Test 3: Bypassing Lock Screen & UAC Prompts
-
-1. Establish a remote connection from Client PC to Server PC.
-2. Lock the Server PC (e.g. click **Lock Windows (Win+L)** in the Viewer).
-3. On the Client Viewer, verify that the display switches to show the Windows Logon/Sign-in screen.
-4. Click the password field and type your password/PIN. Hit Enter to log in remotely!
-5. Trigger any administrative program on the Server PC. When the UAC prompt dims the screen, verify that the Client Viewer can see the UAC dialog box and click "Yes" to elevate.
-
-### Test 4: Clipboard Syncing
-
-1. While connected, copy a paragraph of text on the Client PC.
-2. Right-click and paste it on the Server PC.
-3. Copy something on the Server PC, and paste it locally on the Client PC.
-4. Inspect the Logs box on the Viewer window to see the clipboard transfer notifications.
+### Test 3: Lock Screen & UAC Bypass
+1. Connect the Viewer to the Server PC.
+2. Lock the Server PC (e.g. click **Lock Windows (Win+L)** inside the Viewer).
+3. The display will transition smoothly to the Windows Logon prompt. Type your password/PIN to log back in.
+4. Open an administrative command prompt. When the screen dims and the UAC elevation prompt appears, verify that you can see it and click "Yes" remotely.
 
 ---
 
-## Testing Guide using Virtual Machines (VMs)
+## Troubleshooting & Under-the-Hood Fixes
 
-Using VMs allows you to test the service, lock screen transitions, and input simulation in an isolated environment.
+### Access Violation Crash (Exit Code `3221225794` / `0xC0000005`)
 
-### 1. Download Free Windows Developer VMs
+If the service logs report that the spawned agent exited immediately with an Access Violation (`0xC0000005`), the issue was resolved by addressing two system limitations:
 
-Microsoft provides free virtual machines preconfigured for testing:
+1. **Token Impersonation Level**:
+   * **Problem**: Spawning processes inside interactive secure desktops (like `Winlogon` or `UAC`) requires a primary token duplicated with at least `SecurityImpersonation` or `SecurityDelegation`. Using `SecurityIdentification` triggers access violations when the .NET runtime queries identity context.
+   * **Fix**: Configured `DuplicateTokenEx` to use `SECURITY_IMPERSONATION_LEVEL.SecurityImpersonation`.
+2. **Ephemeral Cryptography Keystores**:
+   * **Problem**: When generating the self-signed SSL certificate, `X509KeyStorageFlags.MachineKeySet` attempts to save the private key cache to disk. Under a duplicated `SYSTEM` logon session where no full user profile is loaded, disk write permission failures occur.
+   * **Fix**: Switched to `X509KeyStorageFlags.EphemeralKeySet` to manage the certificate entirely in memory.
 
-* Download Link: **[Windows 11 Development Environment VMs](https://developer.microsoft.com/en-us/windows/downloads/virtual-machines/)**
-* Choose your hypervisor format (VirtualBox, VMware, Hyper-V, or Parallels).
-
-### 2. Configure Virtual Networking
-
-To allow the VM instances to communicate, change the Network settings in your hypervisor:
-
-* **Option A: NAT with Port Forwarding (Easiest & Recommended)**:
-  * In VM Settings -> **Network** -> **Adapter 1**, set **Attached to** to **NAT**.
-  * Expand **Advanced** and click **Port Forwarding**.
-  * Add a new rule: Protocol `TCP`, Host IP `127.0.0.1`, Host Port `5800`, Guest Port `5800` (leave Guest IP blank).
-  * This allows the Host Viewer to connect to **`127.0.0.1`** to communicate with the VM.
-* **Option B: Host-Only Adapter**:
-  * Sets up a private network between the host PC and your VMs.
-  * The VMs will get IPs in the `192.168.56.x` range.
-* **Option C: Bridged Adapter**:
-  * Binds the VM to your physical network adapter.
-  * The VM gets an IP on your local home network (e.g., `192.168.1.x`).
-
-### 3. Open Firewall Port in the Server VM
-
-The Windows Defender Firewall in the Server VM will block incoming TCP connections by default. 
-
-> [!TIP]
-> Since you cannot copy-paste from your host machine into the VirtualBox console, open a web browser **inside the VM**, go to your GitHub repository `https://github.com/tmkbharathi/LockScreenDemo`, and copy the firewall command from the README directly!
-
-Run this command in an **Administrator PowerShell** window inside the **Server VM** to allow incoming connections on port `5800`:
-
+If you make modifications to the source code, redeploy the fix by executing:
 ```powershell
-New-NetFirewallRule -DisplayName "LockScreenDemo" -Direction Inbound -LocalPort 5800 -Protocol TCP -Action Allow
+# Navigate to the LockScreenDemo directory and rerun the installation script:
+# cd path\to\LockScreenDemo
+Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File .\install.ps1" -Verb RunAs
 ```
 
 ---
 
 ## How to Uninstall
 
-To remove the Windows Service and delete the published binary files:
+To clean up, stop, and unregister the service:
 
 1. Open PowerShell.
-2. Run the uninstaller elevated:
+2. Run the uninstaller:
 
    ```powershell
-   cd "c:\Users\Manikanda Bharathi\Desktop\pooj\rustdesk-master\LockScreenDemo"
+   # Navigate to the LockScreenDemo directory (if not already there):
+   # cd path\to\LockScreenDemo
    Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File .\uninstall.ps1" -Verb RunAs
    ```
-
----
-
-## Troubleshooting
-
-### Access Violation Crash (Exit Code `3221225794` / `0xC0000005`)
-
-If the Windows Service logs show that the Agent process exited immediately with exit code `3221225794` (`0xC0000005`), this represents a Windows **Access Violation**.
-
-This issue was diagnosed and resolved with two core fixes:
-1. **Token Impersonation Level (Worker.cs)**:
-   * **Problem**: The token was duplicated with `SECURITY_IMPERSONATION_LEVEL.SecurityIdentification`. Spawning processes via `CreateProcessAsUserW` to run inside interactive desktops (like Session 1's lock screen) requires the token to have `SecurityImpersonation` or `SecurityDelegation`. Using `SecurityIdentification` led to access violations during internal .NET runtime identity queries.
-   * **Resolution**: Updated token duplication to use `SECURITY_IMPERSONATION_LEVEL.SecurityImpersonation`.
-2. **Ephemeral Cryptography Keystores (Program.cs)**:
-   * **Problem**: Generating the self-signed SSL/TLS certificate using `X509KeyStorageFlags.MachineKeySet` attempted disk-based private key caching. Under the duplicated SYSTEM logon desktop session (where no user profile is fully loaded), this disk write triggered permissions issues.
-   * **Resolution**: Switched to `X509KeyStorageFlags.EphemeralKeySet` to maintain the certificate and private key entirely in memory, bypassing disk keystore permission checks.
-
-To deploy these fixes, open an **Administrator PowerShell** window and rerun the installation script:
-```powershell
-cd "c:\Users\Manikanda Bharathi\Desktop\pooj\rustdesk-master\LockScreenDemo"
-Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File .\install.ps1" -Verb RunAs
-```
