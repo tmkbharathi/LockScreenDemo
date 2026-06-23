@@ -129,7 +129,7 @@ namespace LockScreenDemo.Shared
             public IntPtr hbmColor;
         }
 
-        [StructLayout(LayoutKind.Sequential)]
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
         public struct STARTUPINFO
         {
             public int cb;

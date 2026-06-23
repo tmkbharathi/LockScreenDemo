@@ -160,7 +160,6 @@
                     <StackPanel x:Name="RemoteControlsPanel" Orientation="Horizontal" Visibility="Collapsed" VerticalAlignment="Center">
                         <Button x:Name="RemoteLockBtn" Content="🔒 Remote Lock" Style="{StaticResource PremiumButtonStyle}" Background="#E11D48" Padding="12,6" Click="RemoteLockBtn_Click" Margin="0,0,10,0"/>
                         <Button x:Name="RemoteSasBtn" Content="⚡ Send SAS" Style="{StaticResource PremiumButtonStyle}" Background="#F59E0B" Padding="12,6" Click="RemoteSasBtn_Click" Margin="0,0,10,0"/>
-                        <PasswordBox x:Name="UnlockPasswordInput" Width="110" Height="30" VerticalContentAlignment="Center" Background="#1E293B" Foreground="White" BorderBrush="#3A3F58" Margin="0,0,6,0" Padding="5,0"/>
                         <Button x:Name="RemoteUnlockBtn" Content="🔓 Remote Unlock" Style="{StaticResource PremiumButtonStyle}" Background="#2563EB" Padding="12,6" Click="RemoteUnlockBtn_Click" Margin="0,0,10,0"/>
                     </StackPanel>
                     

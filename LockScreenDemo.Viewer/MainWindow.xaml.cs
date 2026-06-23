@@ -244,10 +244,10 @@ namespace LockScreenDemo.Viewer
         private void RemoteUnlockBtn_Click(object sender, RoutedEventArgs e)
         {
             if (!_isConnected || _sslStream == null) return;
-            string password = UnlockPasswordInput.Password;
+
+            string password = PromptForPassword();
             if (string.IsNullOrEmpty(password))
             {
-                MessageBox.Show("Please enter the Sub PC password to unlock.", "Unlock", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -265,6 +265,42 @@ namespace LockScreenDemo.Viewer
                 MessageBox.Show($"Failed to send unlock command: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 Disconnect();
             }
+        }
+
+        private string PromptForPassword()
+        {
+            var prompt = new Window()
+            {
+                Width = 350,
+                Height = 150,
+                Title = "Remote Unlock Password",
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = this,
+                Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)),
+                Foreground = Brushes.White,
+                ResizeMode = ResizeMode.NoResize,
+                WindowStyle = WindowStyle.ToolWindow
+            };
+
+            var sp = new System.Windows.Controls.StackPanel() { Margin = new Thickness(20) };
+            var tb = new System.Windows.Controls.TextBlock() { Text = "Enter Sub PC password to unlock:", Margin = new Thickness(0, 0, 0, 10), Foreground = Brushes.White };
+            var pb = new System.Windows.Controls.PasswordBox() { Background = new SolidColorBrush(Color.FromRgb(30, 41, 59)), Foreground = Brushes.White, BorderBrush = new SolidColorBrush(Color.FromRgb(58, 63, 88)), Height = 30, VerticalContentAlignment = VerticalAlignment.Center };
+            
+            var btn = new System.Windows.Controls.Button() { Content = "OK", IsDefault = true, Width = 80, Height = 25, Margin = new Thickness(0, 10, 0, 0), HorizontalAlignment = HorizontalAlignment.Right, Style = (Style)this.FindResource("PremiumButtonStyle") };
+            btn.Click += (s, e) => { prompt.DialogResult = true; prompt.Close(); };
+
+            sp.Children.Add(tb);
+            sp.Children.Add(pb);
+            sp.Children.Add(btn);
+            prompt.Content = sp;
+
+            pb.Focus();
+
+            if (prompt.ShowDialog() == true)
+            {
+                return pb.Password;
+            }
+            return "";
         }
 
         // --- SECURE TCP CONNECTION CONTROLS ---
