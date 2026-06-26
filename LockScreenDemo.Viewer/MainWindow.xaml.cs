@@ -559,6 +559,21 @@ namespace LockScreenDemo.Viewer
             catch { }
         }
 
+        private void CopyLogsBtn_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(LogsBox.Text))
+                {
+                    Clipboard.SetText(LogsBox.Text);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"Failed to copy logs to clipboard: {ex.Message}");
+            }
+        }
+
         private void ClearLogsBtn_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -572,6 +587,21 @@ namespace LockScreenDemo.Viewer
             catch (Exception ex)
             {
                 Log($"Failed to clear log file: {ex.Message}");
+            }
+        }
+
+        private void CopyHostLogsBtn_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(HostLogsBox.Text))
+                {
+                    Clipboard.SetText(HostLogsBox.Text);
+                }
+            }
+            catch (Exception ex)
+            {
+                HostLogsBox.Text += $"\n[{DateTime.Now:HH:mm:ss}] Failed to copy logs to clipboard: {ex.Message}\n";
             }
         }
 

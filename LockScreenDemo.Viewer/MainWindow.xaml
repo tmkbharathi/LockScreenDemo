@@ -276,9 +276,11 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="Agent Logs" FontSize="16" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
-                                <Button Grid.Column="1" x:Name="ClearLogsBtn" Style="{StaticResource IconOnlyButtonStyle}" Content="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="13" Click="ClearLogsBtn_Click"/>
+                                <Button Grid.Column="1" x:Name="CopyLogsBtn" Style="{StaticResource IconOnlyButtonStyle}" Content="&#xE8C8;" ToolTip="Copy Logs" FontFamily="Segoe MDL2 Assets" FontSize="13" Click="CopyLogsBtn_Click" Margin="0,0,5,0"/>
+                                <Button Grid.Column="2" x:Name="ClearLogsBtn" Style="{StaticResource IconOnlyButtonStyle}" Content="&#xE74D;" ToolTip="Clear Logs" FontFamily="Segoe MDL2 Assets" FontSize="13" Click="ClearLogsBtn_Click"/>
                             </Grid>
                             <TextBox Grid.Row="1" x:Name="LogsBox" Background="#0C101B" Foreground="#38BDF8" BorderThickness="0" 
                                      TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" IsReadOnly="True" 
@@ -450,9 +452,11 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="Host Agent Logs" FontSize="16" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
-                                <Button Grid.Column="1" x:Name="ClearHostLogsBtn" Style="{StaticResource IconOnlyButtonStyle}" Content="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="13" Click="ClearHostLogsBtn_Click"/>
+                                <Button Grid.Column="1" x:Name="CopyHostLogsBtn" Style="{StaticResource IconOnlyButtonStyle}" Content="&#xE8C8;" ToolTip="Copy Host Logs" FontFamily="Segoe MDL2 Assets" FontSize="13" Click="CopyHostLogsBtn_Click" Margin="0,0,5,0"/>
+                                <Button Grid.Column="2" x:Name="ClearHostLogsBtn" Style="{StaticResource IconOnlyButtonStyle}" Content="&#xE74D;" ToolTip="Clear Host Logs" FontFamily="Segoe MDL2 Assets" FontSize="13" Click="ClearHostLogsBtn_Click"/>
                             </Grid>
                             <TextBox Grid.Row="1" x:Name="HostLogsBox" Background="#0C101B" Foreground="#38BDF8" BorderThickness="0" 
                                      TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" IsReadOnly="True" 
