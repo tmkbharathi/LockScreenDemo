@@ -25,6 +25,7 @@ namespace LockScreenDemo.Agent
         private static readonly object _clipboardLock = new object();
 
         // Active connection SSL stream for log forwarding
+        private static TcpClient? _activeClient;
         private static SslStream? _activeClientStream;
         private static readonly object _activeClientLock = new object();
 
@@ -90,6 +91,10 @@ namespace LockScreenDemo.Agent
             SslStream? sslStream = null;
             try
             {
+                // Set read/write timeouts to prevent hanging handshake or stalled packets
+                client.ReceiveTimeout = 10000;
+                client.SendTimeout = 10000;
+
                 sslStream = new SslStream(client.GetStream(), false);
                 Log("Initiating SSL/TLS handshake...");
                 sslStream.AuthenticateAsServer(certificate, false, System.Security.Authentication.SslProtocols.None, false);
@@ -97,6 +102,16 @@ namespace LockScreenDemo.Agent
 
                 lock (_activeClientLock)
                 {
+                    if (_activeClient != null)
+                    {
+                        try
+                        {
+                            Log("Closing existing active client connection to allow reconnection.");
+                            _activeClient.Close();
+                        }
+                        catch { }
+                    }
+                    _activeClient = client;
                     _activeClientStream = sslStream;
                 }
 
@@ -258,6 +273,10 @@ namespace LockScreenDemo.Agent
                     if (_activeClientStream == sslStream)
                     {
                         _activeClientStream = null;
+                    }
+                    if (_activeClient == client)
+                    {
+                        _activeClient = null;
                     }
                 }
                 sslStream?.Dispose();

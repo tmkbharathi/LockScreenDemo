@@ -65,7 +65,7 @@ namespace LockScreenDemo.Service
             {
                 try
                 {
-                    uint activeSessionId = NativeMethods.WTSGetActiveConsoleSessionId();
+                    uint activeSessionId = GetActiveSessionId();
                     
                     if (activeSessionId == uint.MaxValue)
                     {
@@ -74,10 +74,19 @@ namespace LockScreenDemo.Service
                     }
                     else if (activeSessionId != _currentActiveSessionId || IsAgentDead())
                     {
-                        LogInfo($"Active session changed from {_currentActiveSessionId} to {activeSessionId} (or Agent died). Re-launching Agent.");
-                        KillAgent();
-                        _currentActiveSessionId = activeSessionId;
-                        LaunchAgentInSession(activeSessionId);
+                        // If there is already an agent running in that session (e.g., started as standalone),
+                        // avoid spawning our own agent to prevent port conflicts and CPU spikes.
+                        if (IsAgentRunningInSession(activeSessionId))
+                        {
+                            _currentActiveSessionId = activeSessionId;
+                        }
+                        else
+                        {
+                            LogInfo($"Active session changed from {_currentActiveSessionId} to {activeSessionId} (or Agent died). Re-launching Agent.");
+                            KillAgent();
+                            _currentActiveSessionId = activeSessionId;
+                            LaunchAgentInSession(activeSessionId);
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -91,6 +100,67 @@ namespace LockScreenDemo.Service
             // Cleanup when service stops
             KillAgent();
             LogInfo("LockScreenDemo Windows Service stopped.");
+        }
+
+        private bool IsAgentRunningInSession(uint sessionId)
+        {
+            try
+            {
+                foreach (var proc in Process.GetProcessesByName("LockScreenDemo.Agent"))
+                {
+                    if (proc.SessionId == sessionId)
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogWarning($"Error checking running Agent processes: {ex.Message}");
+            }
+            return false;
+        }
+
+        private uint GetActiveSessionId()
+        {
+            uint sessionId = NativeMethods.WTSGetActiveConsoleSessionId();
+            if (sessionId != uint.MaxValue)
+            {
+                return sessionId;
+            }
+
+            // Fallback: enumerate sessions to find the active one (essential for RDP)
+            IntPtr ppSessionInfo = IntPtr.Zero;
+            int count = 0;
+            try
+            {
+                if (NativeMethods.WTSEnumerateSessionsW(IntPtr.Zero, 0, 1, out ppSessionInfo, out count))
+                {
+                    int structSize = Marshal.SizeOf(typeof(NativeMethods.WTS_SESSION_INFO));
+                    for (int i = 0; i < count; i++)
+                    {
+                        IntPtr current = ppSessionInfo + (i * structSize);
+                        var sessionInfo = Marshal.PtrToStructure<NativeMethods.WTS_SESSION_INFO>(current);
+                        if (sessionInfo.State == NativeMethods.WTS_CONNECTSTATE_CLASS.WTSActive)
+                        {
+                            return (uint)sessionInfo.SessionId;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError("Failed to enumerate sessions.", ex);
+            }
+            finally
+            {
+                if (ppSessionInfo != IntPtr.Zero)
+                {
+                    NativeMethods.WTSFreeMemory(ppSessionInfo);
+                }
+            }
+
+            return uint.MaxValue;
         }
 
         private bool IsAgentDead()

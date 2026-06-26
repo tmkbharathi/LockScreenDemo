@@ -322,6 +322,8 @@ namespace LockScreenDemo.Viewer
             {
                 Log($"Connecting securely to remote Agent at {ipAddress}:5800...");
                 _tcpClient = new TcpClient();
+                _tcpClient.ReceiveTimeout = 10000;
+                _tcpClient.SendTimeout = 10000;
                 
                 // Asynchronously connect to prevent UI thread blocking
                 await _tcpClient.ConnectAsync(ipAddress, 5800);

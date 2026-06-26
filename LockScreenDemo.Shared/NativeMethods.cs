@@ -165,8 +165,7 @@ namespace LockScreenDemo.Shared
         public struct WTS_SESSION_INFO
         {
             public int SessionId;
-            [MarshalAs(UnmanagedType.LPStr)]
-            public string pWinStationName;
+            public IntPtr pWinStationName;
             public WTS_CONNECTSTATE_CLASS State;
         }
 

@@ -102,10 +102,11 @@ namespace LockScreenDemo.Shared
     {
         public static void WritePacket(Stream stream, PacketType type, byte[] payload)
         {
-            stream.WriteByte((byte)type);
-            byte[] lenBytes = BitConverter.GetBytes(payload.Length);
-            stream.Write(lenBytes, 0, 4);
-            stream.Write(payload, 0, payload.Length);
+            byte[] buffer = new byte[1 + 4 + payload.Length];
+            buffer[0] = (byte)type;
+            Buffer.BlockCopy(BitConverter.GetBytes(payload.Length), 0, buffer, 1, 4);
+            Buffer.BlockCopy(payload, 0, buffer, 5, payload.Length);
+            stream.Write(buffer, 0, buffer.Length);
             stream.Flush();
         }
 
