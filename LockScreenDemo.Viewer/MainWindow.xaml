@@ -62,6 +62,35 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Premium Icon Only Button Style -->
+        <Style x:Key="IconOnlyButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#94A3B8" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="6" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="ToolTip" Value="Clear Logs" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                CornerRadius="4" SnapsToDevicePixels="True" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#2A3347" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.7" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid Background="{StaticResource PrimaryBackground}">
@@ -243,7 +272,14 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Text="Agent Logs" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
+                            <Grid Grid.Row="0" Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Agent Logs" FontSize="16" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                                <Button Grid.Column="1" x:Name="ClearLogsBtn" Style="{StaticResource IconOnlyButtonStyle}" Content="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="13" Click="ClearLogsBtn_Click"/>
+                            </Grid>
                             <TextBox Grid.Row="1" x:Name="LogsBox" Background="#0C101B" Foreground="#38BDF8" BorderThickness="0" 
                                      TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" IsReadOnly="True" 
                                      FontFamily="Consolas" FontSize="11" Padding="10"/>
@@ -410,7 +446,14 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Text="Host Agent Logs" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
+                            <Grid Grid.Row="0" Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Host Agent Logs" FontSize="16" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                                <Button Grid.Column="1" x:Name="ClearHostLogsBtn" Style="{StaticResource IconOnlyButtonStyle}" Content="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="13" Click="ClearHostLogsBtn_Click"/>
+                            </Grid>
                             <TextBox Grid.Row="1" x:Name="HostLogsBox" Background="#0C101B" Foreground="#38BDF8" BorderThickness="0" 
                                      TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" IsReadOnly="True" 
                                      FontFamily="Consolas" FontSize="11" Padding="10"/>

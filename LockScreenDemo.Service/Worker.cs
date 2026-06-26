@@ -26,10 +26,25 @@ namespace LockScreenDemo.Service
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("LockScreenDemo Windows Service started.");
+            LogInfo("LockScreenDemo Windows Service started.");
 
             // Ensure certificate is installed in LocalMachine store
             EnsureServerCertificateInstalled();
+
+            // Kill any orphaned Agent processes from previous runs to free TCP port 5800
+            try
+            {
+                foreach (var proc in Process.GetProcessesByName("LockScreenDemo.Agent"))
+                {
+                    LogInfo($"Killing orphaned Agent process (PID {proc.Id}) to prevent TCP port 5800 conflicts.");
+                    proc.Kill();
+                    proc.WaitForExit(2000);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogWarning($"Failed to clean up orphaned Agent processes on startup: {ex.Message}");
+            }
 
             // Create shared local folder for screenshots and logs
             try
@@ -43,7 +58,7 @@ namespace LockScreenDemo.Service
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to create ProgramData directory.");
+                LogError("Failed to create ProgramData directory.", ex);
             }
 
             while (!stoppingToken.IsCancellationRequested)
@@ -59,7 +74,7 @@ namespace LockScreenDemo.Service
                     }
                     else if (activeSessionId != _currentActiveSessionId || IsAgentDead())
                     {
-                        _logger.LogInformation($"Active session changed from {_currentActiveSessionId} to {activeSessionId} (or Agent died). Re-launching Agent.");
+                        LogInfo($"Active session changed from {_currentActiveSessionId} to {activeSessionId} (or Agent died). Re-launching Agent.");
                         KillAgent();
                         _currentActiveSessionId = activeSessionId;
                         LaunchAgentInSession(activeSessionId);
@@ -67,7 +82,7 @@ namespace LockScreenDemo.Service
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error in service loop.");
+                    LogError("Error in service loop.", ex);
                 }
 
                 await Task.Delay(2000, stoppingToken);
@@ -75,7 +90,7 @@ namespace LockScreenDemo.Service
 
             // Cleanup when service stops
             KillAgent();
-            _logger.LogInformation("LockScreenDemo Windows Service stopped.");
+            LogInfo("LockScreenDemo Windows Service stopped.");
         }
 
         private bool IsAgentDead()
@@ -88,7 +103,7 @@ namespace LockScreenDemo.Service
             {
                 if (exitCode != STILL_ACTIVE)
                 {
-                    _logger.LogWarning($"Agent process exited with code {exitCode}.");
+                    LogWarning($"Agent process exited with code {exitCode}.");
                     NativeMethods.CloseHandle(_agentProcessHandle);
                     _agentProcessHandle = IntPtr.Zero;
                     _agentPid = 0;
@@ -107,7 +122,7 @@ namespace LockScreenDemo.Service
                 try
                 {
                     var proc = Process.GetProcessById((int)_agentPid);
-                    _logger.LogInformation($"Killing existing Agent process (PID {_agentPid}).");
+                    LogInfo($"Killing existing Agent process (PID {_agentPid}).");
                     proc.Kill();
                 }
                 catch (Exception)
@@ -126,7 +141,7 @@ namespace LockScreenDemo.Service
 
         private void LaunchAgentInSession(uint sessionId)
         {
-            _logger.LogInformation($"Attempting to launch Agent in Session {sessionId}...");
+            LogInfo($"Attempting to launch Agent in Session {sessionId}...");
 
             IntPtr hProcess = IntPtr.Zero;
             IntPtr hToken = IntPtr.Zero;
@@ -139,11 +154,11 @@ namespace LockScreenDemo.Service
                 IntPtr hCurrentProcess = NativeMethods.GetCurrentProcess();
                 if (!NativeMethods.OpenProcessToken(hCurrentProcess, NativeMethods.TOKEN_DUPLICATE | NativeMethods.TOKEN_ASSIGN_PRIMARY | NativeMethods.TOKEN_QUERY, out hToken))
                 {
-                    _logger.LogError($"Failed to open current process token. Error: {Marshal.GetLastWin32Error()}");
+                    LogError($"Failed to open current process token. Error: {Marshal.GetLastWin32Error()}");
                     return;
                 }
 
-                _logger.LogInformation("Successfully opened current process token. Duplicating token...");
+                LogInfo("Successfully opened current process token. Duplicating token...");
 
                 // Duplicate the token to create a primary token
                 if (!NativeMethods.DuplicateTokenEx(
@@ -154,12 +169,12 @@ namespace LockScreenDemo.Service
                     NativeMethods.TOKEN_TYPE.TokenPrimary,
                     out hTokenDup))
                 {
-                    _logger.LogError($"Failed to duplicate token. Error: {Marshal.GetLastWin32Error()}");
+                    LogError($"Failed to duplicate token. Error: {Marshal.GetLastWin32Error()}");
                     return;
                 }
 
                 // Set token session ID to target session
-                _logger.LogInformation($"Setting duplicated token Session ID to {sessionId}...");
+                LogInfo($"Setting duplicated token Session ID to {sessionId}...");
                 uint targetSessionId = sessionId;
                 if (!NativeMethods.SetTokenInformation(
                     hTokenDup,
@@ -167,14 +182,14 @@ namespace LockScreenDemo.Service
                     ref targetSessionId,
                     sizeof(uint)))
                 {
-                    _logger.LogError($"SetTokenInformation failed to set Session ID. Error: {Marshal.GetLastWin32Error()}");
+                    LogError($"SetTokenInformation failed to set Session ID. Error: {Marshal.GetLastWin32Error()}");
                     return;
                 }
 
                 // Create environment block
                 if (!NativeMethods.CreateEnvironmentBlock(out lpEnv, hTokenDup, true))
                 {
-                    _logger.LogWarning($"Failed to create environment block. Error: {Marshal.GetLastWin32Error()}. Spawning without environment block.");
+                    LogWarning($"Failed to create environment block. Error: {Marshal.GetLastWin32Error()}. Spawning without environment block.");
                 }
 
                 // Set up process parameters
@@ -196,7 +211,7 @@ namespace LockScreenDemo.Service
                     }
                 }
 
-                _logger.LogInformation($"Spawning Agent at: {agentPath}");
+                LogInfo($"Spawning Agent at: {agentPath}");
 
                 var pi = new NativeMethods.PROCESS_INFORMATION();
 
@@ -216,7 +231,7 @@ namespace LockScreenDemo.Service
 
                 if (!success)
                 {
-                    _logger.LogError($"CreateProcessAsUserW failed. Error: {Marshal.GetLastWin32Error()}");
+                    LogError($"CreateProcessAsUserW failed. Error: {Marshal.GetLastWin32Error()}");
                     return;
                 }
 
@@ -224,14 +239,14 @@ namespace LockScreenDemo.Service
                 _agentPid = (uint)pi.dwProcessId;
                 NativeMethods.CloseHandle(pi.hThread);
 
-                _logger.LogInformation($"Agent successfully spawned! PID: {_agentPid}");
+                LogInfo($"Agent successfully spawned! PID: {_agentPid}");
 
                 // Update shared file for Viewer to know
                 File.WriteAllText(@"C:\ProgramData\LockScreenDemo\agent_info.txt", $"PID:{_agentPid}\nSession:{sessionId}\nTime:{DateTime.Now}");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Exception in LaunchAgentInSession.");
+                LogError("Exception in LaunchAgentInSession.", ex);
             }
             finally
             {
@@ -252,11 +267,11 @@ namespace LockScreenDemo.Service
                     var certs = store.Certificates.Find(X509FindType.FindBySubjectName, "LockScreenDemo", false);
                     if (certs.Count > 0)
                     {
-                        _logger.LogInformation("LockScreenDemo certificate is already installed in LocalMachine store.");
+                        LogInfo("LockScreenDemo certificate is already installed in LocalMachine store.");
                         return;
                     }
 
-                    _logger.LogInformation("Generating and installing LockScreenDemo certificate in LocalMachine store...");
+                    LogInfo("Generating and installing LockScreenDemo certificate in LocalMachine store...");
                     using (RSA rsa = RSA.Create(2048))
                     {
                         var request = new CertificateRequest("cn=LockScreenDemo", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
@@ -267,16 +282,58 @@ namespace LockScreenDemo.Service
                             store.Add(cert);
                         }
                     }
-                    _logger.LogInformation("Successfully installed LockScreenDemo certificate in LocalMachine store.");
+                    LogInfo("Successfully installed LockScreenDemo certificate in LocalMachine store.");
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to ensure LockScreenDemo certificate is installed in LocalMachine store.");
+                LogError("Failed to ensure LockScreenDemo certificate is installed in LocalMachine store.", ex);
             }
         }
 
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool GetExitCodeProcess(IntPtr hProcess, out uint lpExitCode);
+
+        private void LogInfo(string message)
+        {
+            _logger.LogInformation(message);
+            LogToFile(message);
+        }
+
+        private void LogWarning(string message)
+        {
+            _logger.LogWarning(message);
+            LogToFile($"[WARNING] {message}");
+        }
+
+        private void LogError(string message, Exception? ex = null)
+        {
+            if (ex != null)
+            {
+                _logger.LogError(ex, message);
+                LogToFile($"[ERROR] {message} (Exception: {ex.Message})");
+            }
+            else
+            {
+                _logger.LogError(message);
+                LogToFile($"[ERROR] {message}");
+            }
+        }
+
+        private void LogToFile(string message)
+        {
+            try
+            {
+                string sharedDir = @"C:\ProgramData\LockScreenDemo";
+                if (!Directory.Exists(sharedDir))
+                {
+                    Directory.CreateDirectory(sharedDir);
+                }
+                string logPath = Path.Combine(sharedDir, "agent_log.txt");
+                string logLine = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [Service] {message}{Environment.NewLine}";
+                File.AppendAllText(logPath, logLine);
+            }
+            catch { }
+        }
     }
 }

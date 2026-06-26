@@ -24,6 +24,10 @@ namespace LockScreenDemo.Agent
         private static string _lastClipboardText = "";
         private static readonly object _clipboardLock = new object();
 
+        // Active connection SSL stream for log forwarding
+        private static SslStream? _activeClientStream;
+        private static readonly object _activeClientLock = new object();
+
         static void Main(string[] args)
         {
             try { File.AppendAllText(@"C:\ProgramData\LockScreenDemo\agent_log.txt", $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [DEBUG] Main entered!{Environment.NewLine}"); } catch {}
@@ -90,6 +94,11 @@ namespace LockScreenDemo.Agent
                 Log("Initiating SSL/TLS handshake...");
                 sslStream.AuthenticateAsServer(certificate, false, System.Security.Authentication.SslProtocols.None, false);
                 Log("SSL/TLS handshake completed. Connection encrypted.");
+
+                lock (_activeClientLock)
+                {
+                    _activeClientStream = sslStream;
+                }
 
                 // Send host MAC address for Wake-on-LAN support
                 try
@@ -244,6 +253,13 @@ namespace LockScreenDemo.Agent
             }
             finally
             {
+                lock (_activeClientLock)
+                {
+                    if (_activeClientStream == sslStream)
+                    {
+                        _activeClientStream = null;
+                    }
+                }
                 sslStream?.Dispose();
                 client.Dispose();
                 Log("Secure client connection closed.");
@@ -648,6 +664,28 @@ namespace LockScreenDemo.Agent
                 string logLine = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}{Environment.NewLine}";
                 Console.WriteLine(message);
                 File.AppendAllText(LogPath, logLine);
+
+                // Forward to connected client Viewer
+                SslStream? stream;
+                lock (_activeClientLock)
+                {
+                    stream = _activeClientStream;
+                }
+                if (stream != null)
+                {
+                    try
+                    {
+                        byte[] logBytes = Encoding.UTF8.GetBytes(message);
+                        lock (stream)
+                        {
+                            ProtocolHelper.WritePacket(stream, PacketType.AgentLog, logBytes);
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore write failures in log forwarder to avoid recursion/exceptions
+                    }
+                }
             }
             catch
             {

@@ -320,7 +320,7 @@ namespace LockScreenDemo.Viewer
 
             try
             {
-                LogsBox.Text += $"\nConnecting securely to remote Agent at {ipAddress}:5800...\n";
+                Log($"Connecting securely to remote Agent at {ipAddress}:5800...");
                 _tcpClient = new TcpClient();
                 
                 // Asynchronously connect to prevent UI thread blocking
@@ -358,10 +358,11 @@ namespace LockScreenDemo.Viewer
                 _clipboardThread.IsBackground = true;
                 _clipboardThread.Start();
 
-                LogsBox.Text += "Secure Connection Successful!\n";
+                Log("Secure Connection Successful!");
             }
             catch (Exception ex)
             {
+                Log($"Failed to connect securely: {ex.Message}");
                 MessageBox.Show($"Failed to connect securely: {ex.Message}", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 Disconnect();
             }
@@ -404,7 +405,7 @@ namespace LockScreenDemo.Viewer
             // Restart local polling
             _timer.Start();
 
-            LogsBox.Text += "Secure connection closed.\n";
+            Log("Secure connection closed.");
         }
 
         private void ReceivePacketsLoop()
@@ -455,8 +456,7 @@ namespace LockScreenDemo.Viewer
                             {
                                 _lastClipboardText = text;
                                 Clipboard.SetText(text);
-                                LogsBox.Text += $"\n[{DateTime.Now:HH:mm:ss}] Clipboard synchronized from remote (Length: {text.Length})\n";
-                                LogsBox.ScrollToEnd();
+                                Log($"Clipboard synchronized from remote (Length: {text.Length})");
                             }
                             catch { }
                         }));
@@ -476,10 +476,22 @@ namespace LockScreenDemo.Viewer
                             SaveMacAddress(remoteIp, mac);
                         }));
                     }
+                    else if (type == PacketType.AgentLog)
+                    {
+                        string message = Encoding.UTF8.GetString(payload);
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            Log($"[Agent] {message}");
+                        }));
+                    }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    Dispatcher.BeginInvoke(new Action(() => Disconnect()));
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        Log($"Connection receive error: {ex.Message}");
+                        Disconnect();
+                    }));
                     break;
                 }
             }
@@ -530,6 +542,53 @@ namespace LockScreenDemo.Viewer
                 LogsBox.Text += $"[{DateTime.Now:HH:mm:ss}] {message}\n";
                 LogsBox.ScrollToEnd();
             }));
+        }
+
+        private void LogToFile(string message)
+        {
+            try
+            {
+                string logLine = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [Viewer/UI] {message}{Environment.NewLine}";
+                string? dir = Path.GetDirectoryName(AgentLogFile);
+                if (dir != null && !Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+                File.AppendAllText(AgentLogFile, logLine);
+            }
+            catch { }
+        }
+
+        private void ClearLogsBtn_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                LogsBox.Text = _isConnected ? "" : "Waiting for Agent logs...";
+                if (File.Exists(AgentLogFile))
+                {
+                    File.WriteAllText(AgentLogFile, string.Empty);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"Failed to clear log file: {ex.Message}");
+            }
+        }
+
+        private void ClearHostLogsBtn_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                HostLogsBox.Text = "Waiting for Agent logs...";
+                if (File.Exists(AgentLogFile))
+                {
+                    File.WriteAllText(AgentLogFile, string.Empty);
+                }
+            }
+            catch (Exception ex)
+            {
+                HostLogsBox.Text += $"\n[{DateTime.Now:HH:mm:ss}] Failed to clear log file: {ex.Message}\n";
+            }
         }
 
         // --- INTERACTIVE INPUT ROUTING ---
@@ -1088,21 +1147,25 @@ namespace LockScreenDemo.Viewer
 
         private void InstallServiceBtn_Click(object sender, RoutedEventArgs e)
         {
+            LogToFile("Triggered Service Installation script.");
             RunPowershellScriptElevated("install.ps1");
         }
 
         private void UninstallServiceBtn_Click(object sender, RoutedEventArgs e)
         {
+            LogToFile("Triggered Service Uninstallation script.");
             RunPowershellScriptElevated("uninstall.ps1");
         }
 
         private void StartServiceBtn_Click(object sender, RoutedEventArgs e)
         {
+            LogToFile("Sent command to start LockScreenDemoService.");
             RunCommandElevated("sc.exe", "start LockScreenDemoService");
         }
 
         private void StopServiceBtn_Click(object sender, RoutedEventArgs e)
         {
+            LogToFile("Sent command to stop LockScreenDemoService.");
             RunCommandElevated("sc.exe", "stop LockScreenDemoService");
         }
 
@@ -1158,7 +1221,7 @@ namespace LockScreenDemo.Viewer
                     CreateNoWindow = true
                 };
                 _standaloneAgentProcess = Process.Start(startInfo);
-                HostLogsBox.Text += $"[{DateTime.Now:HH:mm:ss}] Started standalone agent process.\n";
+                LogToFile("Started standalone agent process.");
             }
             catch (Exception ex)
             {
@@ -1180,7 +1243,7 @@ namespace LockScreenDemo.Viewer
                 {
                     proc.Kill();
                 }
-                HostLogsBox.Text += $"[{DateTime.Now:HH:mm:ss}] Standalone agent stopped.\n";
+                LogToFile("Standalone agent stopped.");
             }
             catch (Exception ex)
             {

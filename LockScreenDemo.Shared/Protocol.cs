@@ -10,7 +10,8 @@ namespace LockScreenDemo.Shared
         KeyboardInput = 3,
         ClipboardSync = 4,
         HostInfo = 5,
-        SystemCommand = 6
+        SystemCommand = 6,
+        AgentLog = 7
     }
 
     public enum MouseMsgType : byte
