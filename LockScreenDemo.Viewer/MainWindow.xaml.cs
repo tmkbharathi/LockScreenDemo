@@ -24,7 +24,6 @@ namespace LockScreenDemo.Viewer
         private static readonly string ServiceStatusFile = Path.Combine(SharedDir, "service_status.txt");
         private static readonly string AgentInfoFile = Path.Combine(SharedDir, "agent_info.txt");
         private static readonly string AgentLogFile = Path.Combine(SharedDir, "agent_log.txt");
-        private static readonly string ViewerLogFile = Path.Combine(SharedDir, "viewer_log.txt");
         private static readonly string ScreenshotFile = Path.Combine(SharedDir, "lockscreen.png");
         private static readonly string SavedHostsFile = Path.Combine(SharedDir, "saved_hosts.txt");
 
@@ -558,12 +557,12 @@ namespace LockScreenDemo.Viewer
             try
             {
                 string logLine = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [Viewer/UI] {message}{Environment.NewLine}";
-                string? dir = Path.GetDirectoryName(ViewerLogFile);
+                string? dir = Path.GetDirectoryName(AgentLogFile);
                 if (dir != null && !Directory.Exists(dir))
                 {
                     Directory.CreateDirectory(dir);
                 }
-                File.AppendAllText(ViewerLogFile, logLine);
+                File.AppendAllText(AgentLogFile, logLine);
             }
             catch { }
         }
@@ -592,14 +591,10 @@ namespace LockScreenDemo.Viewer
                 {
                     File.WriteAllText(AgentLogFile, string.Empty);
                 }
-                if (File.Exists(ViewerLogFile))
-                {
-                    File.WriteAllText(ViewerLogFile, string.Empty);
-                }
             }
             catch (Exception ex)
             {
-                Log($"Failed to clear log files: {ex.Message}");
+                Log($"Failed to clear log file: {ex.Message}");
             }
         }
 
