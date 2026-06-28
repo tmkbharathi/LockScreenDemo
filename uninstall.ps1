@@ -32,6 +32,7 @@ if (Get-Service -Name "LockScreenDemoService" -ErrorAction SilentlyContinue) {
 
 # 2. Kill running processes
 Write-Host "Terminating active processes..." -ForegroundColor Yellow
+Get-Process -Name "LockScreenDemo.Service" -ErrorAction SilentlyContinue | Stop-Process -Force
 Get-Process -Name "LockScreenDemo.Agent" -ErrorAction SilentlyContinue | Stop-Process -Force
 Get-Process -Name "LockScreenDemo.Viewer" -ErrorAction SilentlyContinue | Stop-Process -Force
 
@@ -50,6 +51,21 @@ if (Test-Path $InstallDir) {
 if (Get-Command Remove-NetFirewallRule -ErrorAction SilentlyContinue) {
     Write-Host "Removing Windows Firewall rule..." -ForegroundColor Yellow
     Remove-NetFirewallRule -Name "LockScreenDemo" -ErrorAction SilentlyContinue | Out-Null
+}
+
+# 5. Remove SSL certificate from LocalMachine store
+try {
+    Write-Host "Removing LockScreenDemo SSL Certificate from LocalMachine store..." -ForegroundColor Yellow
+    $store = New-Object System.Security.Cryptography.X509Certificates.X509Store("My", "LocalMachine")
+    $store.Open("ReadWrite")
+    $certs = $store.Certificates | Where-Object { $_.Subject -like "*CN=LockScreenDemo*" }
+    foreach ($cert in $certs) {
+        Write-Host "Removing certificate: $($cert.Subject)..." -ForegroundColor Yellow
+        $store.Remove($cert)
+    }
+    $store.Close()
+} catch {
+    Write-Host "Warning: Failed to clean up certificate: $_" -ForegroundColor Yellow
 }
 
 Write-Host ""

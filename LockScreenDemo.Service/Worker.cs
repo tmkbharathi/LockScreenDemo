@@ -281,6 +281,12 @@ namespace LockScreenDemo.Service
                     }
                 }
 
+                if (!File.Exists(agentPath))
+                {
+                    LogError($"Agent executable NOT found at resolved path: {agentPath}. Cannot spawn Agent.");
+                    return;
+                }
+
                 LogInfo($"Spawning Agent at: {agentPath}");
 
                 var pi = new NativeMethods.PROCESS_INFORMATION();

@@ -71,18 +71,26 @@ namespace LockScreenDemo.Agent
 
                 while (_isRunning)
                 {
-                    TcpClient client = _server.AcceptTcpClient();
-                    Log($"Client connection received from: {client.Client.RemoteEndPoint}");
+                    try
+                    {
+                        TcpClient client = _server.AcceptTcpClient();
+                        Log($"Client connection received from: {client.Client.RemoteEndPoint}");
 
-                    // Handle client securely in a separate thread
-                    Thread clientThread = new Thread(() => HandleClientSecure(client, serverCertificate));
-                    clientThread.IsBackground = true;
-                    clientThread.Start();
+                        // Handle client securely in a separate thread
+                        Thread clientThread = new Thread(() => HandleClientSecure(client, serverCertificate));
+                        clientThread.IsBackground = true;
+                        clientThread.Start();
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"Error accepting client connection: {ex.Message}");
+                        Thread.Sleep(1000); // Prevent CPU spinning in case of persistent socket error
+                    }
                 }
             }
             catch (Exception ex)
             {
-                Log($"TCP Server Error: {ex.Message}");
+                Log($"TCP Server Critical Error: {ex.Message}");
             }
         }
 
@@ -96,9 +104,9 @@ namespace LockScreenDemo.Agent
                 client.SendTimeout = 10000;
 
                 sslStream = new SslStream(client.GetStream(), false);
-                Log("Initiating SSL/TLS handshake...");
+                Log($"Initiating SSL/TLS handshake for client {client.Client.RemoteEndPoint}...");
                 sslStream.AuthenticateAsServer(certificate, false, System.Security.Authentication.SslProtocols.None, false);
-                Log("SSL/TLS handshake completed. Connection encrypted.");
+                Log($"SSL/TLS handshake completed successfully. Connection from {client.Client.RemoteEndPoint} is encrypted.");
 
                 lock (_activeClientLock)
                 {
@@ -680,7 +688,7 @@ namespace LockScreenDemo.Agent
         {
             try
             {
-                string logLine = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}{Environment.NewLine}";
+                string logLine = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [Agent] {message}{Environment.NewLine}";
                 Console.WriteLine(message);
                 File.AppendAllText(LogPath, logLine);
 

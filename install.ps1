@@ -31,8 +31,9 @@ if (Get-Service -Name "LockScreenDemoService" -ErrorAction SilentlyContinue) {
     Start-Sleep -Seconds 1
 }
 
-# Kill any running Agent or Viewer processes to free files
-Write-Host "Terminating existing Agent and Viewer processes..." -ForegroundColor Yellow
+# Kill any running Service, Agent, or Viewer processes to free files
+Write-Host "Terminating existing Service, Agent, and Viewer processes..." -ForegroundColor Yellow
+Get-Process -Name "LockScreenDemo.Service" -ErrorAction SilentlyContinue | Stop-Process -Force
 Get-Process -Name "LockScreenDemo.Agent" -ErrorAction SilentlyContinue | Stop-Process -Force
 Get-Process -Name "LockScreenDemo.Viewer" -ErrorAction SilentlyContinue | Stop-Process -Force
 

@@ -13,10 +13,13 @@ SolidCompression=yes
 OutputDir=.\Output
 OutputBaseFilename=LockScreenDemoSetup
 ; Enable native 64-bit installation mode for Program Files
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesInstallIn64BitMode=x64compatible
 ; Administrator privileges are required to register the Windows Service
 PrivilegesRequired=admin
 PrivilegesRequiredOverridesAllowed=dialog
+
+[Dirs]
+Name: "{commonappdata}\LockScreenDemo"; Permissions: everyone-modify
 
 [Files]
 ; Source all published release files
@@ -56,9 +59,13 @@ Filename: "sc.exe"; Parameters: "delete LockScreenDemoService"; Flags: runhidden
 ; 2. Clean up firewall rule
 Filename: "netsh.exe"; Parameters: "advfirewall firewall delete rule name=""LockScreenDemo"""; Flags: runhidden; RunOnceId: "DeleteFirewallRule"
 
-; 3. Clean up any leftover agent or viewer processes
+; 3. Clean up any leftover processes
+Filename: "taskkill.exe"; Parameters: "/f /im LockScreenDemo.Service.exe"; Flags: runhidden; RunOnceId: "KillService"
 Filename: "taskkill.exe"; Parameters: "/f /im LockScreenDemo.Agent.exe"; Flags: runhidden; RunOnceId: "KillAgent"
 Filename: "taskkill.exe"; Parameters: "/f /im LockScreenDemo.Viewer.exe"; Flags: runhidden; RunOnceId: "KillViewer"
+
+; 4. Clean up certificate from LocalMachine store
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$store = New-Object System.Security.Cryptography.X509Certificates.X509Store('My', 'LocalMachine'); $store.Open('ReadWrite'); $certs = $store.Certificates.Find('FindBySubjectName', 'LockScreenDemo', $false); $store.RemoveRange($certs); $store.Close()"""; Flags: runhidden; RunOnceId: "RemoveCert"
 
 [Code]
 // Terminate running processes and services before file copying starts to prevent file locks (Error 5)

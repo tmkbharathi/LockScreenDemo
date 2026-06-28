@@ -24,6 +24,7 @@ namespace LockScreenDemo.Viewer
         private static readonly string ServiceStatusFile = Path.Combine(SharedDir, "service_status.txt");
         private static readonly string AgentInfoFile = Path.Combine(SharedDir, "agent_info.txt");
         private static readonly string AgentLogFile = Path.Combine(SharedDir, "agent_log.txt");
+        private static readonly string ViewerLogFile = Path.Combine(SharedDir, "viewer_log.txt");
         private static readonly string ScreenshotFile = Path.Combine(SharedDir, "lockscreen.png");
         private static readonly string SavedHostsFile = Path.Combine(SharedDir, "saved_hosts.txt");
 
@@ -328,15 +329,20 @@ namespace LockScreenDemo.Viewer
                 // Asynchronously connect to prevent UI thread blocking
                 await _tcpClient.ConnectAsync(ipAddress, 5800);
                 
+                Log($"TCP Socket connected successfully! Local endpoint: {_tcpClient.Client.LocalEndPoint}, Remote endpoint: {_tcpClient.Client.RemoteEndPoint}");
+                
                 // Wrap in SslStream and trust the self-signed certificate explicitly
-                _sslStream = new SslStream(_tcpClient.GetStream(), false, (s, cert, chain, errs) => true);
+                _sslStream = new SslStream(_tcpClient.GetStream(), false, (s, cert, chain, errs) => {
+                    Log($"SSL Validation Callback: Remote certificate subject='{cert?.Subject}', issuer='{cert?.Issuer}', policy errors={errs}");
+                    return true;
+                });
                 
                 Log("Initiating SSL/TLS handshake...");
                 // Asynchronously authenticate to prevent UI thread blocking
                 await _sslStream.AuthenticateAsClientAsync(ipAddress);
                 
                 _isConnected = true;
-                Log("SSL/TLS encrypted connection established!");
+                Log($"SSL/TLS encrypted connection established! Cipher Suite: {_sslStream.NegotiatedCipherSuite}, Protocol: {_sslStream.SslProtocol}");
 
                 // Stop local file polling
                 _timer.Stop();
@@ -364,7 +370,7 @@ namespace LockScreenDemo.Viewer
             }
             catch (Exception ex)
             {
-                Log($"Failed to connect securely: {ex.Message}");
+                Log($"Failed to connect securely. Error details:\n{ex}");
                 MessageBox.Show($"Failed to connect securely: {ex.Message}", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 Disconnect();
             }
@@ -544,6 +550,7 @@ namespace LockScreenDemo.Viewer
                 LogsBox.Text += $"[{DateTime.Now:HH:mm:ss}] {message}\n";
                 LogsBox.ScrollToEnd();
             }));
+            LogToFile(message);
         }
 
         private void LogToFile(string message)
@@ -551,12 +558,12 @@ namespace LockScreenDemo.Viewer
             try
             {
                 string logLine = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [Viewer/UI] {message}{Environment.NewLine}";
-                string? dir = Path.GetDirectoryName(AgentLogFile);
+                string? dir = Path.GetDirectoryName(ViewerLogFile);
                 if (dir != null && !Directory.Exists(dir))
                 {
                     Directory.CreateDirectory(dir);
                 }
-                File.AppendAllText(AgentLogFile, logLine);
+                File.AppendAllText(ViewerLogFile, logLine);
             }
             catch { }
         }
@@ -585,10 +592,14 @@ namespace LockScreenDemo.Viewer
                 {
                     File.WriteAllText(AgentLogFile, string.Empty);
                 }
+                if (File.Exists(ViewerLogFile))
+                {
+                    File.WriteAllText(ViewerLogFile, string.Empty);
+                }
             }
             catch (Exception ex)
             {
-                Log($"Failed to clear log file: {ex.Message}");
+                Log($"Failed to clear log files: {ex.Message}");
             }
         }
 
